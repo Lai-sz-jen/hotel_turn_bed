@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>翻床統計系統 UI 原型</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <aside class="sidebar" aria-label="主選單">
+    <div class="brand">
+      <div class="brand-mark">床</div>
+      <div>
+        <strong>翻床統計</strong>
+        <span>Housekeeping Analytics</span>
+      </div>
+    </div>
+    <nav>
+      <a href="#dashboard" class="active">總覽</a>
+      <a href="#floors">樓層迫切度</a>
+      <a href="#plan">建立計畫</a>
+      <a href="#record">執行紀錄</a>
+      <a href="#reports">報表</a>
+      <a href="#notify">通知</a>
+    </nav>
+  </aside>
+
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">2026-05-13 09:30 更新</p>
+        <h1>房務翻床規劃工作台</h1>
+      </div>
+      <div class="top-actions">
+        <button class="ghost-button" type="button">匯入排房資料</button>
+        <button class="primary-button" type="button">建立翻床計畫</button>
+      </div>
+    </header>
+
+    <section id="dashboard" class="metric-grid" aria-label="今日總覽">
+      <article class="metric-card urgent">
+        <span>最高迫切樓層</span>
+        <strong>8F</strong>
+        <p>迫切度 92 / 100，建議優先協調封層。</p>
+      </article>
+      <article class="metric-card">
+        <span>達門檻房間</span>
+        <strong>38 間</strong>
+        <p>累計入住晚數已超過建議翻床區間。</p>
+      </article>
+      <article class="metric-card">
+        <span>待紀錄計畫</span>
+        <strong>2 筆</strong>
+        <p>其中 1 筆將於 3 天後作廢。</p>
+      </article>
+      <article class="metric-card">
+        <span>預估節省工時</span>
+        <strong>18.5 小時</strong>
+        <p>相較整棟固定週期翻床。</p>
+      </article>
+    </section>
+
+    <section id="floors" class="workspace">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Floor Maintenance Urgency</p>
+          <h2>樓層維護迫切度</h2>
+        </div>
+        <div class="filter-row">
+          <button class="chip active" type="button">全部</button>
+          <button class="chip" type="button">已達門檻</button>
+          <button class="chip" type="button">可封層</button>
+        </div>
+      </div>
+
+      <div class="floor-layout">
+        <div class="floor-list" id="floorList"></div>
+        <div class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">8F Room Priority</p>
+              <h3>房間優先順序</h3>
+            </div>
+            <span class="status-pill danger">建議翻床</span>
+          </div>
+          <div class="room-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>房號</th>
+                  <th>累計晚數</th>
+                  <th>優先級</th>
+                  <th>上次翻床</th>
+                  <th>狀態</th>
+                </tr>
+              </thead>
+              <tbody id="roomRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="plan" class="workspace split">
+      <div class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Create Plan</p>
+            <h2>建立翻床計畫</h2>
+          </div>
+          <span class="status-pill">草稿</span>
+        </div>
+        <form class="form-grid">
+          <label>
+            計畫日期
+            <input type="date" value="2026-05-15">
+          </label>
+          <label>
+            樓層
+            <select>
+              <option>8F - 迫切度 92</option>
+              <option>6F - 迫切度 81</option>
+              <option>5F - 迫切度 68</option>
+            </select>
+          </label>
+          <label>
+            封層時段
+            <select>
+              <option>09:00 - 13:00</option>
+              <option>13:00 - 17:00</option>
+              <option>整日</option>
+            </select>
+          </label>
+          <label>
+            前台確認
+            <select>
+              <option>已確認可封層</option>
+              <option>待電話確認</option>
+              <option>不可封層</option>
+            </select>
+          </label>
+        </form>
+        <div class="plan-summary">
+          <div>
+            <span>本次排入</span>
+            <strong>12 間</strong>
+          </div>
+          <div>
+            <span>預估工時</span>
+            <strong>4.8 小時</strong>
+          </div>
+          <div>
+            <span>空置影響</span>
+            <strong>中</strong>
+          </div>
+        </div>
+        <button class="primary-button full" type="button">儲存計畫</button>
+      </div>
+
+      <div class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Plan Queue</p>
+            <h3>預計翻床順序</h3>
+          </div>
+          <button class="ghost-button small" type="button">依優先級重排</button>
+        </div>
+        <ol class="priority-list" id="priorityList"></ol>
+      </div>
+    </section>
+
+    <section id="record" class="workspace split">
+      <div class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Execution Record</p>
+            <h2>建立執行紀錄</h2>
+          </div>
+          <span class="status-pill warning">待完成</span>
+        </div>
+        <form class="form-grid">
+          <label>
+            選擇計畫
+            <select>
+              <option>2026-05-15 8F 翻床計畫</option>
+              <option>2026-05-17 6F 翻床計畫</option>
+            </select>
+          </label>
+          <label>
+            翻床日期
+            <input type="date" value="2026-05-15">
+          </label>
+          <label class="wide">
+            今天翻到的最後房號
+            <select id="lastRoomSelect">
+              <option>808</option>
+              <option>810</option>
+              <option>812</option>
+              <option>816</option>
+            </select>
+          </label>
+        </form>
+        <div class="hint-box">
+          選擇最後一間房後，系統會自動勾選優先順序在此之前的房間；仍可手動微調。
+        </div>
+        <button class="primary-button full" type="button">儲存執行紀錄</button>
+      </div>
+
+      <div class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Selected Rooms</p>
+            <h3>本次歸零房間</h3>
+          </div>
+          <span class="status-pill">8 間</span>
+        </div>
+        <div class="check-list" id="recordList"></div>
+      </div>
+    </section>
+
+    <section id="reports" class="workspace split">
+      <div class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Report Export</p>
+            <h2>報表匯出</h2>
+          </div>
+          <button class="ghost-button small" type="button">匯出 CSV</button>
+        </div>
+        <div class="report-options">
+          <label><input type="checkbox" checked> 樓層迫切度排行</label>
+          <label><input type="checkbox" checked> 房間累計晚數</label>
+          <label><input type="checkbox" checked> 翻床執行紀錄</label>
+          <label><input type="checkbox"> 通知觸發紀錄</label>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Recent Plans</p>
+            <h3>近期計畫狀態</h3>
+          </div>
+        </div>
+        <div class="timeline">
+          <div><span></span><strong>8F 翻床計畫</strong><small>待紀錄，2026-05-15</small></div>
+          <div><span></span><strong>6F 翻床計畫</strong><small>已建立，2026-05-17</small></div>
+          <div><span></span><strong>5F 翻床紀錄</strong><small>已完成，2026-05-08</small></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="notify" class="workspace split">
+      <div class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Notification Rules</p>
+            <h2>通知設定</h2>
+          </div>
+          <span class="status-pill">Gmail</span>
+        </div>
+        <div class="toggle-list">
+          <label><input type="checkbox" checked> 有樓層達到最低急迫度門檻</label>
+          <label><input type="checkbox" checked> 計畫即將作廢卻尚未紀錄</label>
+          <label><input type="checkbox"> 有樓層急迫度達到自訂門檻</label>
+        </div>
+        <label class="threshold">
+          自訂急迫度門檻
+          <input type="range" min="50" max="100" value="85">
+          <span>85</span>
+        </label>
+      </div>
+      <div class="panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Recipients</p>
+            <h3>通知對象</h3>
+          </div>
+          <button class="ghost-button small" type="button">寄送測試信</button>
+        </div>
+        <div class="recipient-list">
+          <div><strong>housekeeping.manager@gmail.com</strong><button type="button">刪除</button></div>
+          <div><strong>frontdesk.team@gmail.com</strong><button type="button">刪除</button></div>
+        </div>
+        <label class="add-email">
+          新增 Gmail 帳號
+          <input type="email" placeholder="name@gmail.com">
+        </label>
+      </div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
