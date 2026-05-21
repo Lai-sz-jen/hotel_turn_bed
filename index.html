@@ -1,11 +1,13 @@
 <!doctype html>
 <html lang="zh-Hant">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>翻床統計系統 UI 原型</title>
   <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
   <aside class="sidebar" aria-label="主選單">
     <div class="brand">
@@ -22,6 +24,8 @@
       <a href="#record">執行紀錄</a>
       <a href="#reports">報表</a>
       <a href="#notify">通知</a>
+      <a href="#settings">門檻設定</a>
+      <a href="#ai" class="nav-ai">✦ AI 建議</a>
     </nav>
   </aside>
 
@@ -287,8 +291,214 @@
         </label>
       </div>
     </section>
+
+    <!-- ===== F1.1 門檻設定 ===== -->
+    <section id="settings" class="workspace">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Threshold Configuration · F1.1</p>
+          <h2>門檻設定</h2>
+        </div>
+        <button class="primary-button" type="button" id="saveSettingsBtn">儲存設定</button>
+      </div>
+
+      <div class="settings-grid">
+        <!-- 各房型門檻 -->
+        <div class="panel settings-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Room Type Thresholds</p>
+              <h3>各房型翻床門檻（單位：晚）</h3>
+            </div>
+          </div>
+          <div class="room-type-tabs">
+            <button class="chip active" type="button" data-tab="single">單人房</button>
+            <button class="chip" type="button" data-tab="double">雙人房</button>
+            <button class="chip" type="button" data-tab="quad">四人房</button>
+            <button class="chip" type="button" data-tab="suite">套房</button>
+          </div>
+          <div class="threshold-fields">
+            <label>
+              <span class="threshold-icon green-dot"></span>
+              可以翻床門檻
+              <div class="input-unit-wrap">
+                <input type="number" id="thresh_can" min="1" value="60">
+                <span class="unit-badge">晚</span>
+              </div>
+              <small class="field-hint">累計晚數低於此值，封層時可選擇不翻床</small>
+            </label>
+            <label>
+              <span class="threshold-icon yellow-dot"></span>
+              建議翻床門檻
+              <div class="input-unit-wrap">
+                <input type="number" id="thresh_rec" min="1" value="120">
+                <span class="unit-badge">晚</span>
+              </div>
+              <small class="field-hint">人力、資產閒置與床墊損壞風險的平衡點</small>
+            </label>
+            <label>
+              <span class="threshold-icon red-dot"></span>
+              急需翻床門檻
+              <div class="input-unit-wrap">
+                <input type="number" id="thresh_urg" min="1" value="180">
+                <span class="unit-badge">晚</span>
+              </div>
+              <small class="field-hint">超過此值有床墊損壞風險</small>
+            </label>
+          </div>
+        </div>
+
+        <!-- 樓層急迫度參數 -->
+        <div class="panel settings-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Floor Urgency Parameters</p>
+              <h3>樓層急迫度計算參數</h3>
+            </div>
+          </div>
+          <div class="threshold-fields">
+            <label>
+              最低急迫度門檻（黃燈以上房間數）
+              <div class="input-unit-wrap">
+                <input type="number" id="thresh_min_urgency" min="1" value="5">
+                <span class="unit-badge">間</span>
+              </div>
+              <small class="field-hint">一層樓達到幾間黃燈以上才納入急迫度排序</small>
+            </label>
+            <label>
+              紅燈房權重
+              <div class="input-unit-wrap">
+                <input type="number" id="thresh_red_weight" min="1" step="0.5" value="2">
+                <span class="unit-badge">倍</span>
+              </div>
+              <small class="field-hint">計算樓層急迫度時，紅燈房的加權倍率（預設 2）</small>
+            </label>
+            <div class="weight-preview">
+              <p class="eyebrow">急迫度公式預覽</p>
+              <code>FloorUrgency = Σ(w<sub>i</sub> × r<sub>i</sub>)</code>
+              <div class="weight-legend">
+                <span class="legend-item"><span class="green-dot"></span>綠：w = 0</span>
+                <span class="legend-item"><span class="blue-dot"></span>藍：w = 0</span>
+                <span class="legend-item"><span class="yellow-dot"></span>黃：w = 1</span>
+                <span class="legend-item"><span class="red-dot"></span>紅：w = <strong
+                    id="weight_preview">2</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== F4.1 / F4.2 AI 參數建議 ===== -->
+    <section id="ai" class="workspace">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">AI Parameter Advisory · F4.1 / F4.2</p>
+          <h2>AI 參數建議</h2>
+        </div>
+        <span class="status-pill ai-pill">✦ AI 分析中</span>
+      </div>
+
+      <div class="ai-layout">
+        <!-- 左：建議清單 -->
+        <div class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Suggestions based on anomaly records</p>
+              <h3>根據異常紀錄的建議調整</h3>
+            </div>
+            <button class="ghost-button small" type="button" id="refreshAiBtn">重新分析</button>
+          </div>
+
+          <div class="ai-suggestion-list" id="aiSuggestionList">
+            <div class="ai-card ai-card--warn">
+              <div class="ai-card__header">
+                <span class="ai-card__type">四人房</span>
+                <span class="ai-card__direction down">▼ 降低門檻</span>
+              </div>
+              <p class="ai-card__desc">過去 6 個月四人房共發生 <strong>4 次</strong>床墊凹陷異常，異常頻率高於其他房型 2.3 倍。建議將急需翻床門檻由 <strong>180
+                  晚</strong> 降至 <strong>140 晚</strong>，以降低床墊損壞風險。</p>
+              <div class="ai-card__actions">
+                <button class="ghost-button small" type="button">檢視異常紀錄</button>
+                <button class="primary-button small ai-accept-btn" type="button" data-field="thresh_urg"
+                  data-room-type="quad" data-value="140">套用建議</button>
+              </div>
+            </div>
+
+            <div class="ai-card ai-card--good">
+              <div class="ai-card__header">
+                <span class="ai-card__type">單人房</span>
+                <span class="ai-card__direction up">▲ 提高門檻</span>
+              </div>
+              <p class="ai-card__desc">單人房過去 12 個月<strong>零異常紀錄</strong>，目前建議翻床門檻（120 晚）保守。建議將建議翻床門檻提高至 <strong>150
+                  晚</strong>，可節省約 18% 人力成本。</p>
+              <div class="ai-card__actions">
+                <button class="ghost-button small" type="button">檢視異常紀錄</button>
+                <button class="primary-button small ai-accept-btn" type="button" data-field="thresh_rec"
+                  data-room-type="single" data-value="150">套用建議</button>
+              </div>
+            </div>
+
+            <div class="ai-card ai-card--info">
+              <div class="ai-card__header">
+                <span class="ai-card__type">紅燈房權重</span>
+                <span class="ai-card__direction up">▲ 調高權重</span>
+              </div>
+              <p class="ai-card__desc">分析顯示紅燈房比黃燈房的損壞機率高 <strong>3.8 倍</strong>，而目前紅燈權重僅設為 2。建議調整為
+                <strong>3.5</strong>，使急迫度計算更能反映實際風險。</p>
+              <div class="ai-card__actions">
+                <button class="ghost-button small" type="button">查看分析依據</button>
+                <button class="primary-button small ai-accept-btn" type="button" data-field="thresh_red_weight"
+                  data-value="3.5">套用建議</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右：授權設定 + 調整紀錄 -->
+        <div style="display:grid;gap:18px;align-content:start">
+          <div class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Authorization · F4.2</p>
+                <h3>AI 自動調整授權</h3>
+              </div>
+            </div>
+            <div class="toggle-list">
+              <label>
+                <input type="radio" name="ai_auth" value="manual" checked>
+                手動確認（AI 僅提供建議，由我決定是否套用）
+              </label>
+              <label>
+                <input type="radio" name="ai_auth" value="auto">
+                授權 AI 自動調整（系統自動套用建議並留下紀錄）
+              </label>
+            </div>
+            <div class="hint-box" style="margin-top:14px;margin-bottom:0">
+              目前模式：<strong id="authModeLabel">手動確認</strong>。每次參數變更皆會記錄於下方調整紀錄。
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Adjustment Log</p>
+                <h3>參數調整紀錄</h3>
+              </div>
+            </div>
+            <div class="timeline" id="aiAdjLog">
+              <div><span></span><strong>單人房 建議翻床門檻 120 → 130 晚</strong><small>AI 建議，手動套用 · 2026-04-10</small></div>
+              <div><span></span><strong>最低急迫度門檻 4 → 5 間</strong><small>AI 建議，手動套用 · 2026-03-22</small></div>
+              <div><span></span><strong>雙人房 急需翻床門檻 170 → 160 晚</strong><small>AI 自動套用 · 2026-02-14</small></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <script src="script.js"></script>
 </body>
+
 </html>
