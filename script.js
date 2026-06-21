@@ -249,9 +249,9 @@ class MockBackend {
     // 10.0 GET /parameters/suggestion
     getParameterSuggestion() {
         return {
+            status: 'success',
             suggestions: [
-                { type: "四人房", new_val: 120, reason: "近期異常偏高，建議調降門檻以增加翻床頻率。" },
-                { type: "單人房", new_val: 140, reason: "過去半年無異常，建議調升門檻以節省人力。" }
+                { type: '四人房', old_val: 140, new_val: 120, reason: '近期四人房翻床超時比例增加 15%，建議調降黃燈門檻以提早排程。' }
             ]
         };
     }
@@ -265,6 +265,16 @@ class MockBackend {
     updateNotices(payload) {
         return { status: "success" };
     }
+    // 9.0 PUT /parameters
+    async updateParameters(payload) {
+        // payload expects: { single: {can, rec, urg}, twin: {can, rec, urg}, ... }
+        if (payload.single) this.db.thresholds.single = { ...this.db.thresholds.single, ...payload.single };
+        if (payload.twin) this.db.thresholds.twin = { ...this.db.thresholds.twin, ...payload.twin };
+        if (payload.double) this.db.thresholds.double = { ...this.db.thresholds.double, ...payload.double };
+        if (payload.quad) this.db.thresholds.quad = { ...this.db.thresholds.quad, ...payload.quad };
+        this.recalculateAll();
+        return { status: 'success', updated_parameters: this.db.thresholds };
+    }
 }
 
 // ==========================================
@@ -273,39 +283,43 @@ class MockBackend {
 const mockBackend = new MockBackend();
 
 const apiClient = {
-    async request(method, endpoint, data = null) {
-        console.log(`[API Request] ${method} ${endpoint}`, data || '');
-        
-        // 模擬網路延遲
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        let response;
+    async request(method, endpoint, payload = {}) {
         try {
+            console.log(`[API Request] ${method} ${endpoint}`, payload);
+            
+            // 模擬網路延遲
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            let response;
             if (endpoint === '/dashboard' && method === 'GET') {
-                response = mockBackend.getDashboard();
+                response = { status: 'success', rooms: mockBackend.getDashboard() };
             } else if (endpoint === '/dashboard/search' && method === 'POST') {
-                response = mockBackend.searchDashboard(data);
+                response = mockBackend.searchDashboard(payload);
             } else if (endpoint === '/dashboard/export' && method === 'GET') {
                 response = mockBackend.exportDashboard();
             } else if (endpoint === '/plans/suggestion' && method === 'GET') {
                 response = mockBackend.getPlanSuggestion();
             } else if (endpoint === '/plans' && method === 'POST') {
-                response = mockBackend.createPlan(data);
+                response = mockBackend.createPlan(payload);
             } else if (endpoint.startsWith('/plans/') && method === 'PATCH') {
                 const id = endpoint.split('/')[2];
-                response = mockBackend.updatePlan(id, data);
+                response = mockBackend.updatePlan(id, payload);
             } else if (endpoint === '/exceptions' && method === 'POST') {
-                response = mockBackend.createException(data);
+                response = mockBackend.createException(payload);
             } else if (endpoint === '/exceptions' && method === 'GET') {
                 response = mockBackend.getExceptions();
+            } else if (endpoint === '/parameters' && method === 'GET') {
+                return new Promise(resolve => setTimeout(() => {
+                    resolve({ status: 'success', parameters: mockBackend.db.thresholds });
+                }, 100));
             } else if (endpoint === '/parameters' && method === 'PUT') {
-                response = mockBackend.updateParameters(data);
+                response = await mockBackend.updateParameters(payload);
             } else if (endpoint === '/parameters/suggestion' && method === 'GET') {
                 response = mockBackend.getParameterSuggestion();
             } else if (endpoint === '/parameters/authorize' && method === 'PUT') {
-                response = mockBackend.authorizeParameters(data);
+                response = mockBackend.authorizeParameters(payload);
             } else if (endpoint === '/notices/config' && method === 'POST') {
-                response = mockBackend.updateNotices(data);
+                response = mockBackend.updateNotices(payload);
             } else {
                 throw new Error('404 Not Found');
             }
@@ -342,39 +356,48 @@ const ViewControllers = {
         const lightFilter = document.getElementById('filter-light').value;
         const noFilter = document.getElementById('filter-room-no').value;
 
-        // API 呼叫：先取得建議樓層 (4.0) 供特殊篩選與 Top Cards 使用
-        const planData = await apiClient.request('GET', '/plans/suggestion');
-        
-        let targetFloors = [];
-        if (floorFilter === '@eligible') {
-            targetFloors = planData.suggested_floors ? planData.suggested_floors.map(f => f.floor) : [];
-            if (targetFloors.length === 0) targetFloors = ['__NONE__'];
-        } else if (floorFilter === '@ineligible') {
-            const elig = planData.suggested_floors ? planData.suggested_floors.map(f => f.floor) : [];
-            const allOptions = Array.from(document.getElementById('filter-floor').options).map(o => o.value).filter(v => v && !v.startsWith('@'));
-            targetFloors = allOptions.filter(f => !elig.includes(f));
-            if (targetFloors.length === 0) targetFloors = ['__NONE__'];
-        } else if (floorFilter) {
-            targetFloors = [floorFilter];
+        // API 呼叫：取得真實儀表板與建議樓層資料
+        let data;
+        try {
+            const res = await fetch('/api/v1/dashboard/summary');
+            if (!res.ok) throw new Error('Network response was not ok');
+            data = await res.json();
+        } catch (e) {
+            console.error(e);
+            document.getElementById('room-grid-container').innerHTML = `<div class="empty-state">無法連線至後端伺服器</div>`;
+            return;
         }
 
-        // 構建 SA 格式的 JSON 請求
-        const payload = {
-            filters: {
-                floors: targetFloors,
-                room_types: typeFilter ? [typeFilter] : [], // SA 中可能用 single/twin, 此處簡化直接傳中文, mock API 會濾不到, 所以做個 mapping
-                room_no: noFilter,
-                statuses: lightFilter ? [lightFilter.toUpperCase()] : []
-            },
-            page: 1, limit: 50, sort_by: "floor", sort_order: "asc"
-        };
+        const planData = { suggested_floors: data.suggested_floors };
+        let rooms = data.rooms;
 
-        // 轉換中文房型回英文鍵值以供 Mock 搜尋
-        const typeMapRev = { '單人房': 'single', '雙人房': 'twin', '四人房': 'quad', '套房': 'quad' };
-        if (typeFilter) payload.filters.room_types = [typeMapRev[typeFilter] || typeFilter];
+        // 本地篩選邏輯
+        if (floorFilter === '@eligible') {
+            const eligFloors = data.suggested_floors.map(f => f.floor);
+            rooms = rooms.filter(r => eligFloors.includes(r.floor));
+        } else if (floorFilter === '@ineligible') {
+            const eligFloors = data.suggested_floors.map(f => f.floor);
+            rooms = rooms.filter(r => !eligFloors.includes(r.floor));
+        } else if (floorFilter) {
+            rooms = rooms.filter(r => r.floor === floorFilter);
+        }
 
-        // API 呼叫：2.0 透過篩選器搜尋
-        const rooms = await apiClient.request('POST', '/dashboard/search', payload);
+        if (typeFilter) {
+            rooms = rooms.filter(r => r.type === typeFilter);
+        }
+        if (noFilter) {
+            rooms = rooms.filter(r => r.room.includes(noFilter));
+        }
+        if (lightFilter) {
+            rooms = rooms.filter(r => r.light.toLowerCase() === lightFilter.toLowerCase());
+        }
+        
+        // 確保與舊版渲染程式碼相容：將 backend 的 `room` 映射回 `no`，`light` 映射為 `status`
+        rooms = rooms.map(r => ({
+            ...r,
+            no: r.room,
+            status: r.light.toUpperCase()
+        }));
 
         // 渲染 Top Cards
         if (planData.suggested_floors && planData.suggested_floors.length > 0) {
@@ -465,20 +488,25 @@ const ViewControllers = {
 
     // 載入建立計畫視窗
     async loadPlanView() {
-        // API: GET /plans/suggestion
-        const data = await apiClient.request('GET', '/plans/suggestion');
-        
-        const floorSelect = document.getElementById('plan-floor-select');
-        const currVal = floorSelect.value;
-        
-        if (data.suggested_floors) {
-            floorSelect.innerHTML = `<option value="">請選擇樓層...</option>` + 
-                data.suggested_floors.map(f => `<option value="${f.floor}">${f.floor} 樓 - 得分 ${f.score.toFixed(1)} (推薦)</option>`).join('');
+        try {
+            const response = await fetch('/api/v1/plans/suggested-floors');
+            if (!response.ok) throw new Error('API Error');
+            const data = await response.json();
+            
+            const floorSelect = document.getElementById('plan-floor-select');
+            const currVal = floorSelect.value;
+            
+            if (data.suggested_floors) {
+                floorSelect.innerHTML = `<option value="">請選擇樓層...</option>` + 
+                    data.suggested_floors.map(f => `<option value="${f.floor}">${f.floor} 樓 - 得分 ${f.score.toFixed(1)} (推薦)</option>`).join('');
+            }
+            if (currVal) floorSelect.value = currVal;
+    
+            // 如果有選樓層，去抓那層的房間 (呼叫 search API)
+            this.renderPlanRooms();
+        } catch (e) {
+            console.error(e);
         }
-        if (currVal) floorSelect.value = currVal;
-
-        // 如果有選樓層，去抓那層的房間 (呼叫 search API)
-        this.renderPlanRooms();
     },
 
     async renderPlanRooms() {
@@ -492,41 +520,47 @@ const ViewControllers = {
             return;
         }
 
-        // 抓該層所有黃燈以上的房間
-        const rooms = await apiClient.request('POST', '/dashboard/search', {
-            filters: { floors: [floor], statuses: ["RED", "YELLOW", "BLUE"] },
-            sort_by: "nights", sort_order: "desc"
-        });
+        try {
+            const response = await fetch(`/api/v1/plans/floor-rooms?floor=${floor}`);
+            if (!response.ok) throw new Error('API Error');
+            const data = await response.json();
+            let rooms = data.rooms || [];
+            
+            // 過濾：只保留非綠燈的房間
+            rooms = rooms.filter(r => r.light.toLowerCase() !== 'green');
 
-        if (rooms.length === 0) {
-            listEl.innerHTML = '<div class="empty-state">該樓層無須翻床客房</div>';
-            countEl.textContent = '0 間';
-            return;
-        }
+            if (rooms.length === 0) {
+                listEl.innerHTML = '<div class="empty-state">該樓層無須翻床客房</div>';
+                countEl.textContent = '0 間';
+                return;
+            }
 
-        listEl.innerHTML = rooms.map(r => `
-            <label class="list-item-room">
-                <div>
-                    <div class="room-title">${r.no} ${this.getLightBadge(r.status)}</div>
-                    <div class="room-desc">${r.type} | 累計 ${r.nights} 晚</div>
-                </div>
-                <div class="checkbox-item">
-                    <span>排入</span>
-                    <input type="checkbox" class="plan-room-check" value="${r.no}" checked>
-                </div>
-            </label>
-        `).join('');
+            listEl.innerHTML = rooms.map(r => `
+                <label class="list-item-room">
+                    <div>
+                        <div class="room-title">${r.room} ${this.getLightBadge(r.light)}</div>
+                        <div class="room-desc">${r.type} | 累計 ${r.nights} 晚</div>
+                    </div>
+                    <div class="checkbox-item">
+                        <span>排入</span>
+                        <input type="checkbox" class="plan-room-check" value="${r.room}" checked>
+                    </div>
+                </label>
+            `).join('');
 
-        countEl.textContent = `${rooms.length} 間`;
-        
-        document.querySelectorAll('.plan-room-check').forEach(chk => {
-            chk.addEventListener('change', (e) => {
-                const item = e.target.closest('.list-item-room');
-                if (e.target.checked) item.classList.remove('excluded');
-                else item.classList.add('excluded');
-                countEl.textContent = `${document.querySelectorAll('.plan-room-check:checked').length} 間`;
+            countEl.textContent = `${rooms.length} 間`;
+            
+            document.querySelectorAll('.plan-room-check').forEach(chk => {
+                chk.addEventListener('change', (e) => {
+                    const item = e.target.closest('.list-item-room');
+                    if (e.target.checked) item.classList.remove('excluded');
+                    else item.classList.add('excluded');
+                    countEl.textContent = `${document.querySelectorAll('.plan-room-check:checked').length} 間`;
+                });
             });
-        });
+        } catch (e) {
+            listEl.innerHTML = '<div class="empty-state">無法連線至後端伺服器</div>';
+        }
     },
 
     async createPlan() {
@@ -537,52 +571,73 @@ const ViewControllers = {
         const rooms = Array.from(document.querySelectorAll('.plan-room-check:checked')).map(el => el.value);
         if (rooms.length === 0) return showToast('請至少選擇一間房', 'error');
 
-        // JSON API: POST /plans
         const payload = {
             floor: floor,
-            date: dateStr,
-            confirmed: confirmedStr === '已確認可封層',
+            plan_date: dateStr,
             rooms: rooms
         };
 
-        const res = await apiClient.request('POST', '/plans', payload);
-        if (res.status === 'success') {
-            showToast('✅ 計畫建立成功！', 'success');
-            document.getElementById('plan-form').reset();
-            this.loadRecordView(); // 更新紀錄頁面的下拉
+        try {
+            const response = await fetch('/api/v1/plans/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) throw new Error('API Error');
+            const res = await response.json();
+            
+            if (res.status === 'ok') {
+                showToast(`✅ 計畫建立成功！排入 ${res.inserted_count} 間`, 'success');
+                if (res.skipped && res.skipped.length > 0) {
+                    showToast(`⚠️ 有 ${res.skipped.length} 間已經在其他未執行計畫中，自動略過排程。`, 'warning');
+                }
+                document.getElementById('plan-form').reset();
+                this.loadRecordView(); // 更新紀錄頁面的下拉
+            } else {
+                showToast(`建立失敗: ${res.message}`, 'error');
+            }
+        } catch (e) {
+            showToast('❌ 無法連線至真實後端', 'error');
         }
     },
 
     async loadRecordView() {
-        // 直接從 mockBackend 的 state 拿計畫 (SA 中未明確列出 GET /plans，此處直接使用)
-        const plans = mockBackend.db.plans;
-        const select = document.getElementById('record-plan-select');
-        select.innerHTML = `<option value="">請選擇待處理計畫...</option>` + 
-            plans.map(p => `<option value="${p.id}">${p.date} - ${p.floor}樓 (${p.rooms.length}間)</option>`).join('');
-
-        this.renderRecordRooms();
+        try {
+            const response = await fetch('/api/v1/execution/pending');
+            if (!response.ok) throw new Error('API Error');
+            const data = await response.json();
+            window.currentPendingPlans = data.plans || [];
+            
+            const select = document.getElementById('record-plan-select');
+            select.innerHTML = `<option value="">請選擇待處理計畫...</option>` + 
+                window.currentPendingPlans.map((p, idx) => `<option value="${idx}">${p.plan_date} - ${p.floor}樓 (${p.rooms.length}間)</option>`).join('');
+    
+            this.renderRecordRooms();
+        } catch (e) {
+            console.error(e);
+        }
     },
 
     renderRecordRooms() {
-        const planId = document.getElementById('record-plan-select').value;
+        const planIdx = document.getElementById('record-plan-select').value;
         const listEl = document.getElementById('record-room-list');
         const countEl = document.getElementById('record-checked-count');
 
-        if (!planId) {
+        if (planIdx === "") {
             listEl.innerHTML = '<div class="empty-state">請先選擇計畫</div>';
             countEl.textContent = '0 間';
             return;
         }
 
-        const plan = mockBackend.db.plans.find(p => p.id === planId);
+        const plan = window.currentPendingPlans[planIdx];
         
-        listEl.innerHTML = plan.rooms.map(rNo => `
+        listEl.innerHTML = plan.rooms.map(r => `
             <div class="list-item-room">
                 <label class="checkbox-item" style="flex:1; cursor:pointer;">
-                    <input type="checkbox" class="record-room-check" value="${rNo}">
+                    <input type="checkbox" class="record-room-check" value="${r.room}">
                     <div>
-                        <div class="room-title">${rNo}</div>
-                        <div class="room-desc">計畫排程內客房</div>
+                        <div class="room-title">${r.room} ${this.getLightBadge(r.light)}</div>
+                        <div class="room-desc">${r.type} | 已累計 ${r.nights} 晚</div>
                     </div>
                 </label>
             </div>
@@ -617,59 +672,113 @@ const ViewControllers = {
     },
 
     async completePlan() {
-        const planId = document.getElementById('record-plan-select').value;
-        if (!planId) return showToast('請先選擇計畫', 'error');
+        const planIdx = document.getElementById('record-plan-select').value;
+        if (planIdx === "") return showToast('請先選擇計畫', 'error');
 
         const turnedRooms = Array.from(document.querySelectorAll('.record-room-check:checked')).map(el => el.value);
         if (turnedRooms.length === 0) return showToast('請至少勾選一間房歸零', 'error');
 
-        // JSON API: PATCH /plans/<id>
-        const payload = { turned: turnedRooms };
-        const res = await apiClient.request('PATCH', `/plans/${planId}`, payload);
-        
-        if (res.status === 'success') {
-            showToast(`🎉 成功結算 ${turnedRooms.length} 間客房，狀態已歸零！`, 'success');
-            this.loadRecordView();
-            this.loadDashboard();
+        const executeDate = document.getElementById('record-date').value;
+
+        const payload = { 
+            rooms: turnedRooms,
+            execute_date: executeDate
+        };
+
+        try {
+            const response = await fetch('/api/v1/execution/confirm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) throw new Error('API Error');
+            const res = await response.json();
+            
+            if (res.status === 'ok') {
+                showToast(`🎉 成功結算 ${res.executed_count} 間客房，狀態已歸零！`, 'success');
+                this.loadRecordView();
+                this.loadDashboard();
+            } else {
+                showToast(`結算失敗: ${res.message}`, 'error');
+            }
+        } catch (e) {
+            showToast('❌ 無法連線至真實後端', 'error');
         }
     },
 
     async loadExceptions() {
-        // API: GET /exceptions
-        const data = await apiClient.request('GET', '/exceptions', { page: 1, limit: 20, sort_by: "date", sort_order: "desc" });
-        const tbody = document.getElementById('exception-table-body');
-        
-        if (!data.rooms || data.rooms.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">無異常紀錄</td></tr>`;
-            return;
+        try {
+            const response = await fetch('/api/v1/exceptions');
+            if (!response.ok) throw new Error('API Error');
+            const data = await response.json();
+            const tbody = document.getElementById('exception-table-body');
+            
+            if (!data.rooms || data.rooms.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">無異常紀錄</td></tr>`;
+                return;
+            }
+    
+            tbody.innerHTML = data.rooms.map(e => `
+                <tr>
+                    <td>${e.date}</td>
+                    <td><strong>${e.room}</strong></td>
+                    <td>${e.type}</td>
+                    <td>${e.night} 晚</td>
+                    <td>${this.getLightBadge(e.light)}</td>
+                </tr>
+            `).join('');
+        } catch (e) {
+            console.error(e);
         }
-
-        tbody.innerHTML = data.rooms.map(e => `
-            <tr>
-                <td>${e.date}</td>
-                <td><strong>${e.room}</strong></td>
-                <td>${e.type}</td>
-                <td>${e.night} 晚</td>
-                <td>${this.getLightBadge(e.light)}</td>
-            </tr>
-        `).join('');
     },
 
     async submitException() {
         const no = document.getElementById('exc-room-no').value;
         
-        // API: POST /exceptions
-        const res = await apiClient.request('POST', '/exceptions', { room_no: no });
-        if (res.status === 'success') {
-            showToast('🚨 異常紀錄已儲存', 'warning');
-            document.getElementById('exception-form').reset();
-            this.loadExceptions();
-        } else {
-            showToast('找不到該房號', 'error');
+        try {
+            const response = await fetch('/api/v1/exceptions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ room_no: no })
+            });
+            if (!response.ok) throw new Error('API Error');
+            const res = await response.json();
+            
+            if (res.status === 'success') {
+                showToast('🚨 異常紀錄已儲存', 'warning');
+                document.getElementById('exception-form').reset();
+                this.loadExceptions();
+            } else {
+                showToast(res.message || '找不到該房號', 'error');
+            }
+        } catch (e) {
+            showToast('❌ 無法連線至真實後端', 'error');
         }
     },
 
     async loadSettings() {
+        // API: GET /parameters
+        const paramRes = await apiClient.request('GET', '/parameters');
+        if (paramRes.status === 'success') {
+            const t = paramRes.parameters;
+            
+            document.getElementById('p-single-can').value = t.single.can;
+            document.getElementById('p-single-rec').value = t.single.rec;
+            document.getElementById('p-single-urg').value = t.single.urg;
+
+            document.getElementById('p-twin-can').value = t.twin.can;
+            document.getElementById('p-twin-rec').value = t.twin.rec;
+            document.getElementById('p-twin-urg').value = t.twin.urg;
+
+            document.getElementById('p-double-can').value = t.double.can;
+            document.getElementById('p-double-rec').value = t.double.rec;
+            document.getElementById('p-double-urg').value = t.double.urg;
+
+            document.getElementById('p-quad-can').value = t.quad.can;
+            document.getElementById('p-quad-rec').value = t.quad.rec;
+            document.getElementById('p-quad-urg').value = t.quad.urg;
+        }
+
         // API: GET /parameters/suggestion
         const aiData = await apiClient.request('GET', '/parameters/suggestion');
         const aiListEl = document.getElementById('ai-suggestion-list');
@@ -678,15 +787,18 @@ const ViewControllers = {
             aiListEl.innerHTML = aiData.suggestions.map(s => `
                 <div class="ai-card">
                     <div class="ai-card-header">
-                        <span class="ai-card-type">${s.type}</span>
-                        <span class="ai-card-action">AI 分析建議</span>
+                        <h4>${s.type}</h4>
+                        <span class="badge ${s.new_val < s.old_val ? 'green' : 'yellow'}">
+                            建議調整為 ${s.new_val} 晚 (原 ${s.old_val})
+                        </span>
                     </div>
-                    <p>${s.reason}</p>
-                    <div class="text-right">
-                        <button class="btn btn-primary btn-sm" onclick="ViewControllers.applyAISuggestion('${s.type}', ${s.new_val})">一鍵套用 (${s.new_val} 晚)</button>
+                    <div class="ai-card-body">
+                        <p>${s.reason}</p>
                     </div>
                 </div>
             `).join('');
+        } else {
+            aiListEl.innerHTML = '<div class="empty-state">目前無需調整參數</div>';
         }
     },
 
@@ -695,7 +807,7 @@ const ViewControllers = {
         const typeMapRev = { '單人房': 'single', '雙人房': 'twin', '四人房': 'quad', '套房': 'quad' };
         const key = typeMapRev[type] || 'single';
         const payload = {};
-        payload[key] = val;
+        payload[key] = { rec: val };
         
         const res = await apiClient.request('PUT', '/parameters', payload);
         if (res.status === 'success') {
@@ -705,9 +817,15 @@ const ViewControllers = {
     },
     
     async exportCsv() {
-        const res = await apiClient.request('GET', '/dashboard/export');
-        if (res.status === 'success') {
-            showToast(`📊 報表產生成功：${res.file}`, 'success');
+        try {
+            const response = await fetch('/api/v1/report/export', { method: 'POST' });
+            if (!response.ok) throw new Error('API Error');
+            const res = await response.json();
+            if (res.status === 'success') {
+                showToast(`📊 報表產生成功：${res.file}`, 'success');
+            }
+        } catch (e) {
+            showToast('❌ 報表匯出失敗', 'error');
         }
     }
 };
@@ -771,12 +889,81 @@ function initEvents() {
     // Export
     document.getElementById('export-csv-btn').addEventListener('click', (e) => { e.preventDefault(); ViewControllers.exportCsv(); });
 
-    // Settings
+    // Settings Tabs
+    document.querySelectorAll('.setting-tab-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const targetId = e.target.getAttribute('data-target');
+            document.querySelectorAll('.setting-tab-btn').forEach(b => {
+                b.classList.remove('active');
+                b.style.borderBottomColor = 'transparent';
+                b.style.color = 'var(--text-muted)';
+            });
+            e.target.classList.add('active');
+            e.target.style.borderBottomColor = 'var(--primary)';
+            e.target.style.color = 'white';
+            
+            document.querySelectorAll('.setting-tab-pane').forEach(pane => {
+                pane.style.display = 'none';
+            });
+            document.getElementById(targetId).style.display = 'block';
+        });
+    });
+
+    // Settings Save
     document.getElementById('btn-save-thresholds').addEventListener('click', async () => {
-        // Simplified batch update
-        const payload = { single: 90, twin: 100, double: 100, quad: 110 }; 
-        await apiClient.request('PUT', '/parameters', payload);
-        showToast('✅ 參數更新成功', 'success');
+        const payload = { 
+            single: { 
+                can: parseInt(document.getElementById('p-single-can').value),
+                rec: parseInt(document.getElementById('p-single-rec').value),
+                urg: parseInt(document.getElementById('p-single-urg').value)
+            },
+            twin: { 
+                can: parseInt(document.getElementById('p-twin-can').value),
+                rec: parseInt(document.getElementById('p-twin-rec').value),
+                urg: parseInt(document.getElementById('p-twin-urg').value)
+            },
+            double: { 
+                can: parseInt(document.getElementById('p-double-can').value),
+                rec: parseInt(document.getElementById('p-double-rec').value),
+                urg: parseInt(document.getElementById('p-double-urg').value)
+            },
+            quad: { 
+                can: parseInt(document.getElementById('p-quad-can').value),
+                rec: parseInt(document.getElementById('p-quad-rec').value),
+                urg: parseInt(document.getElementById('p-quad-urg').value)
+            }
+        }; 
+        try {
+            const response = await fetch('/api/v1/parameters', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) throw new Error('API Error');
+            showToast('✅ 參數更新成功，已寫入真實後端資料庫！', 'success');
+            // 由於目前 dashboard 仍依賴 mock，我們也同步更新 mock 讓前端即時反應
+            await apiClient.request('PUT', '/parameters', payload);
+        } catch (e) {
+            showToast('❌ 無法連線至真實後端，請確認 app.py 是否啟動', 'error');
+        }
+    });
+
+    document.getElementById('btn-save-weights').addEventListener('click', async () => {
+        const payload = {
+            minYellow: parseInt(document.getElementById('setting-min-yellow').value),
+            redWeight: parseFloat(document.getElementById('setting-red-weight').value)
+        };
+        try {
+            const response = await fetch('/api/v1/weights', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) throw new Error('API Error');
+            showToast('✅ 權重更新成功，已寫入真實後端資料庫！', 'success');
+        } catch (e) {
+            showToast('❌ 無法連線至真實後端，請確認 app.py 是否啟動', 'error');
+        }
     });
 
     document.querySelectorAll('input[name="ai-auth"]').forEach(r => {

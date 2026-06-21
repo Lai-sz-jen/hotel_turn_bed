@@ -294,34 +294,91 @@
 
                 <!-- VIEW: Settings (參數設定) -->
                 <section id="view-settings" class="view">
-                    <div class="dashboard-grid">
-                        <div class="card glass-card flex-col lg-col-span-2">
+                    <div class="dashboard-grid" style="grid-template-columns: 2.5fr 1fr;">
+                        <div class="card glass-card flex-col">
                             <div class="card-header">
                                 <h3>各房型翻床門檻設定 (晚數)</h3>
                                 <button type="button" class="btn btn-primary btn-sm" id="btn-save-thresholds">儲存設定</button>
                             </div>
-                            <div class="table-container mt-4">
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th>房型</th>
-                                            <th><span class="dot dot-blue"></span> 可以翻床門檻</th>
-                                            <th><span class="dot dot-yellow"></span> 建議翻床門檻</th>
-                                            <th><span class="dot dot-red"></span> 急需翻床門檻</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="threshold-table-body">
-                                        <!-- Form elements via JS -->
-                                    </tbody>
-                                </table>
+                            <div class="tabs-container mt-4">
+                                <div class="settings-tabs" style="display: flex; gap: 0.5rem; border-bottom: 1px solid hsla(0,0%,100%,0.1); margin-bottom: 1.5rem;">
+                                    <button type="button" class="setting-tab-btn active" data-target="tab-single" style="padding: 0.5rem 1rem; background: transparent; border: none; border-bottom: 2px solid var(--primary); color: white; cursor: pointer;">單人房</button>
+                                    <button type="button" class="setting-tab-btn" data-target="tab-twin" style="padding: 0.5rem 1rem; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); cursor: pointer;">雙人房</button>
+                                    <button type="button" class="setting-tab-btn" data-target="tab-double" style="padding: 0.5rem 1rem; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); cursor: pointer;">兩大床</button>
+                                    <button type="button" class="setting-tab-btn" data-target="tab-quad" style="padding: 0.5rem 1rem; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); cursor: pointer;">套房/四人</button>
+                                </div>
+
+                                <!-- 單人房 -->
+                                <div class="setting-tab-pane" id="tab-single" style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
+                                    <div class="form-group" style="flex: 1; min-width: 150px;">
+                                        <label><span class="dot dot-blue"></span> 可以翻床 (Blue)</label>
+                                        <input type="number" id="p-single-can" min="1" class="w-full">
+                                    </div>
+                                    <div class="form-group" style="flex: 1; min-width: 150px;">
+                                        <label><span class="dot dot-yellow"></span> 建議翻床 (Yellow)</label>
+                                        <input type="number" id="p-single-rec" min="1" class="w-full">
+                                    </div>
+                                    <div class="form-group" style="flex: 1; min-width: 150px;">
+                                        <label><span class="dot dot-red"></span> 急需翻床 (Red)</label>
+                                        <input type="number" id="p-single-urg" min="1" class="w-full">
+                                    </div>
+                                </div>
+                                
+                                <!-- 雙人房 -->
+                                <div class="setting-tab-pane" id="tab-twin" style="display: none; gap: 1.5rem; flex-wrap: wrap;">
+                                    <div class="form-group" style="flex: 1; min-width: 150px;">
+                                        <label><span class="dot dot-blue"></span> 可以翻床 (Blue)</label>
+                                        <input type="number" id="p-twin-can" min="1" class="w-full">
+                                    </div>
+                                    <div class="form-group" style="flex: 1; min-width: 150px;">
+                                        <label><span class="dot dot-yellow"></span> 建議翻床 (Yellow)</label>
+                                        <input type="number" id="p-twin-rec" min="1" class="w-full">
+                                    </div>
+                                    <div class="form-group" style="flex: 1; min-width: 150px;">
+                                        <label><span class="dot dot-red"></span> 急需翻床 (Red)</label>
+                                        <input type="number" id="p-twin-urg" min="1" class="w-full">
+                                    </div>
+                                </div>
+                                
+                                <!-- 兩大床 -->
+                                <div class="setting-tab-pane" id="tab-double" style="display: none; gap: 1.5rem; flex-wrap: wrap;">
+                                    <div class="form-group" style="flex: 1; min-width: 150px;">
+                                        <label><span class="dot dot-blue"></span> 可以翻床 (Blue)</label>
+                                        <input type="number" id="p-double-can" min="1" class="w-full">
+                                    </div>
+                                    <div class="form-group" style="flex: 1; min-width: 150px;">
+                                        <label><span class="dot dot-yellow"></span> 建議翻床 (Yellow)</label>
+                                        <input type="number" id="p-double-rec" min="1" class="w-full">
+                                    </div>
+                                    <div class="form-group" style="flex: 1; min-width: 150px;">
+                                        <label><span class="dot dot-red"></span> 急需翻床 (Red)</label>
+                                        <input type="number" id="p-double-urg" min="1" class="w-full">
+                                    </div>
+                                </div>
+                                
+                                <!-- 套房 -->
+                                <div class="setting-tab-pane" id="tab-quad" style="display: none; gap: 1.5rem; flex-wrap: wrap;">
+                                    <div class="form-group" style="flex: 1; min-width: 150px;">
+                                        <label><span class="dot dot-blue"></span> 可以翻床 (Blue)</label>
+                                        <input type="number" id="p-quad-can" min="1" class="w-full">
+                                    </div>
+                                    <div class="form-group" style="flex: 1; min-width: 150px;">
+                                        <label><span class="dot dot-yellow"></span> 建議翻床 (Yellow)</label>
+                                        <input type="number" id="p-quad-rec" min="1" class="w-full">
+                                    </div>
+                                    <div class="form-group" style="flex: 1; min-width: 150px;">
+                                        <label><span class="dot dot-red"></span> 急需翻床 (Red)</label>
+                                        <input type="number" id="p-quad-urg" min="1" class="w-full">
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="card glass-card">
+                        <div class="card glass-card flex-col" style="height: 100%;">
                             <div class="card-header">
                                 <h3>樓層急迫度公式權重</h3>
                             </div>
-                            <form class="form-layout mt-4" id="weight-form">
+                            <form class="form-layout mt-4" id="weight-form" style="flex: 1; display: flex; flex-direction: column;">
                                 <div class="form-group">
                                     <label>最低急迫度門檻 (間) <span class="help-text">黃燈以上數量達標才可封層</span></label>
                                     <input type="number" id="setting-min-yellow" min="1" value="5">
@@ -330,41 +387,44 @@
                                     <label>紅燈房權重倍率</label>
                                     <input type="number" step="0.5" id="setting-red-weight" min="1" value="2">
                                 </div>
+                                <div style="flex: 1;"></div>
                                 <button type="button" class="btn btn-outline mt-2 w-full" id="btn-save-weights">更新權重</button>
                             </form>
                         </div>
-                        
-                        <div class="card glass-card">
+
+                        <div class="card glass-card" style="grid-column: 1 / -1;">
                             <div class="card-header">
                                 <h3>通知條件與對象設定</h3>
                             </div>
                             <form class="form-layout mt-4">
-                                <label class="toggle-control">
-                                    <input type="checkbox" id="notif-urgent" checked>
-                                    <span class="control-indicator"></span>
-                                    <span>樓層達最低急迫度門檻</span>
-                                </label>
-                                <label class="toggle-control">
-                                    <input type="checkbox" id="notif-expire" checked>
-                                    <span class="control-indicator"></span>
-                                    <span>計畫即將作廢尚未紀錄</span>
-                                </label>
-                                <label class="toggle-control">
-                                    <input type="checkbox" id="notif-ai">
-                                    <span class="control-indicator"></span>
-                                    <span>AI 參數自動調整通知</span>
-                                </label>
+                                <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
+                                    <label class="toggle-control">
+                                        <input type="checkbox" id="notif-urgent" checked>
+                                        <span class="control-indicator"></span>
+                                        <span>樓層達最低急迫度門檻</span>
+                                    </label>
+                                    <label class="toggle-control">
+                                        <input type="checkbox" id="notif-expire" checked>
+                                        <span class="control-indicator"></span>
+                                        <span>計畫即將作廢尚未紀錄</span>
+                                    </label>
+                                    <label class="toggle-control">
+                                        <input type="checkbox" id="notif-ai">
+                                        <span class="control-indicator"></span>
+                                        <span>AI 參數自動調整通知</span>
+                                    </label>
+                                </div>
                                 
                                 <div class="divider mt-4 mb-4"></div>
                                 <label>通知信箱管理</label>
-                                <div class="email-list" id="email-list">
+                                <div class="email-list" id="email-list" style="display: flex; gap: 1rem; flex-wrap: wrap;">
                                     <div class="email-item">manager@hotel.com <button class="btn-icon text-red">×</button></div>
                                 </div>
-                                <div class="form-group flex gap-2 mt-2">
-                                    <input type="email" id="new-email" placeholder="新增 Email">
+                                <div class="form-group flex gap-2 mt-2" style="max-width: 400px;">
+                                    <input type="email" id="new-email" placeholder="新增 Email" style="flex: 1;">
                                     <button type="button" class="btn btn-outline" id="btn-add-email">+</button>
                                 </div>
-                                <button type="button" class="btn btn-primary mt-4 w-full" id="btn-test-email">發送測試信</button>
+                                <button type="button" class="btn btn-primary mt-4" id="btn-test-email" style="max-width: 200px;">發送測試信</button>
                             </form>
                         </div>
                     </div>
