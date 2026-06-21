@@ -376,9 +376,6 @@ const ViewControllers = {
         // API 呼叫：2.0 透過篩選器搜尋
         const rooms = await apiClient.request('POST', '/dashboard/search', payload);
 
-        // API 呼叫：4.0 建議樓層 (拿來更新 Top Cards)
-        const planData = await apiClient.request('GET', '/plans/suggestion');
-        
         // 渲染 Top Cards
         if (planData.suggested_floors && planData.suggested_floors.length > 0) {
             const top = planData.suggested_floors[0];
