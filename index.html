@@ -1,504 +1,428 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-Hant">
-
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>翻床統計系統 UI 原型</title>
-  <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧翻床統籌系統</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
 </head>
-
 <body>
-  <aside class="sidebar" aria-label="主選單">
-    <div class="brand">
-      <div class="brand-mark">床</div>
-      <div>
-        <strong>翻床統計</strong>
-        <span>Housekeeping Analytics</span>
-      </div>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-logo">HK</div>
+                <div class="brand-text">
+                    <h1>Housekeeping</h1>
+                    <span>自調適翻床系統</span>
+                </div>
+            </div>
+            <nav class="nav-menu">
+                <p class="nav-section">儀表板</p>
+                <a href="#" data-target="view-dashboard" class="nav-item active">房況總覽與篩選</a>
+                <a href="#" id="export-csv-btn" class="nav-item">報表匯出</a>
+
+                <p class="nav-section">翻床計畫</p>
+                <a href="#" data-target="view-plan" class="nav-item">建立計畫</a>
+                <a href="#" data-target="view-record" class="nav-item">執行狀況紀錄</a>
+
+                <p class="nav-section">異常記錄</p>
+                <a href="#" data-target="view-exception" class="nav-item">記錄異常與瀏覽</a>
+
+                <p class="nav-section">系統管理</p>
+                <a href="#" data-target="view-settings" class="nav-item">參數與通知設定</a>
+                <a href="#" data-target="view-ai" class="nav-item nav-item-ai">
+                    <span class="sparkle">✦</span> AI 參數建議
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <h2 id="page-title">房況總覽與篩選</h2>
+                    <p class="topbar-subtitle" id="page-subtitle">即時掌握全棟客房狀態與樓層急迫度</p>
+                </div>
+                <div class="topbar-right">
+                    <div class="system-time">
+                        <span class="time-label">Data Sync</span>
+                        <strong id="sync-time">10:42 AM</strong>
+                    </div>
+                    <div class="user-profile">
+                        <img src="https://ui-avatars.com/api/?name=Admin&background=1f2937&color=fff&rounded=true" alt="User">
+                    </div>
+                </div>
+            </header>
+
+            <div class="views-container">
+                
+                <!-- VIEW: Dashboard -->
+                <section id="view-dashboard" class="view active">
+                    <div class="metric-cards">
+                        <div class="card glass-card">
+                            <h3 class="card-title">最急迫樓層</h3>
+                            <div class="card-value urgent" id="dash-urgent-floor">--</div>
+                            <p class="card-desc" id="dash-urgent-score">--</p>
+                        </div>
+                        <div class="card glass-card">
+                            <h3 class="card-title">紅燈房數</h3>
+                            <div class="card-value text-red" id="dash-red-count">0</div>
+                            <p class="card-desc">急需翻床，具損壞風險</p>
+                        </div>
+                        <div class="card glass-card">
+                            <h3 class="card-title">黃燈房數</h3>
+                            <div class="card-value text-yellow" id="dash-yellow-count">0</div>
+                            <p class="card-desc">建議翻床區間</p>
+                        </div>
+                        <div class="card glass-card">
+                            <h3 class="card-title">活躍計畫</h3>
+                            <div class="card-value text-blue" id="dash-plan-count">0</div>
+                            <p class="card-desc">待執行紀錄</p>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-single">
+                        <!-- Room Filter & Table (Merged with Ranking) -->
+                        <div class="card glass-card flex-col">
+                            <div class="card-header">
+                                <h3>樓層急迫度排行與房況總覽</h3>
+                            </div>
+                            <form id="filter-form" class="filter-bar">
+                                <div class="form-group">
+                                    <label>樓層</label>
+                                    <select id="filter-floor">
+                                        <option value="">全部樓層</option>
+                                        <option value="@eligible">⭐ 達封層門檻 (推薦)</option>
+                                        <option value="@ineligible">未達封層門檻</option>
+                                        <!-- specific floors populated by JS -->
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>房型</label>
+                                    <select id="filter-type">
+                                        <option value="">全部房型</option>
+                                        <option value="單人房">單人房</option>
+                                        <option value="雙人房">雙人房</option>
+                                        <option value="四人房">四人房</option>
+                                        <option value="套房">套房</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>燈號</label>
+                                    <select id="filter-light">
+                                        <option value="">全部狀態</option>
+                                        <option value="red">紅燈 (急需)</option>
+                                        <option value="yellow">黃燈 (建議)</option>
+                                        <option value="blue">藍燈 (可順便)</option>
+                                        <option value="green">綠燈 (無須)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>房號</label>
+                                    <input type="text" id="filter-room-no" placeholder="例如: 801">
+                                </div>
+                                <div class="form-group btn-group">
+                                    <button type="button" class="btn btn-primary" id="btn-apply-filter">搜尋</button>
+                                </div>
+                            </form>
+
+                            <div class="table-container mt-4" id="room-grid-container">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW: Plan (建立計畫) -->
+                <section id="view-plan" class="view">
+                    <div class="grid-2col">
+                        <div class="card glass-card">
+                            <div class="card-header">
+                                <h3>建立翻床計畫</h3>
+                            </div>
+                            <form id="plan-form" class="form-layout">
+                                <div class="form-group">
+                                    <label>選擇樓層 (自動推薦最急迫)</label>
+                                    <select id="plan-floor-select">
+                                        <!-- Populated by JS -->
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>計畫執行日期</label>
+                                    <input type="date" id="plan-date" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>前台確認狀態</label>
+                                    <select id="plan-confirm">
+                                        <option value="已確認可封層">已確認可封層</option>
+                                        <option value="待電話確認">待電話確認</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-primary mt-4 w-full">確認並儲存計畫</button>
+                            </form>
+                            <div class="info-box mt-6">
+                                <strong>💡 提示</strong>
+                                <p>選擇樓層後，右側將自動依優先級列出該樓層建議翻床的客房。您可視情況剔除(取消勾選)不需要翻床的房間。</p>
+                            </div>
+                        </div>
+
+                        <div class="card glass-card">
+                            <div class="card-header">
+                                <h3>計畫客房順序 <span class="badge" id="plan-room-count">0 間</span></h3>
+                            </div>
+                            <div class="plan-room-list" id="plan-room-list">
+                                <!-- Populated by JS -->
+                                <div class="empty-state">請先選擇左側樓層</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW: Record (執行紀錄) -->
+                <section id="view-record" class="view">
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <h3>記錄執行狀況 (FE-02-2)</h3>
+                        </div>
+                        <form id="record-form" class="form-layout">
+                            <div class="grid-2col" style="align-items: end;">
+                                <div class="form-group">
+                                    <label>欲記錄之計畫/樓層</label>
+                                    <select id="record-plan-select" required>
+                                        <!-- Populated by JS -->
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>實際翻床日期</label>
+                                    <input type="date" id="record-date" required>
+                                </div>
+                            </div>
+                            
+                            <div class="divider mt-2 mb-2"></div>
+                            
+                            <div class="flex justify-between items-center mb-4">
+                                <div class="flex items-center" style="gap:16px;">
+                                    <label class="text-secondary" style="font-size:13px; font-weight:600;">操作模式</label>
+                                    <label class="radio-control">
+                                        <input type="radio" name="record-mode" value="batch" checked>
+                                        <span class="control-indicator"></span>
+                                        <span>選最後一間 (自動連選)</span>
+                                    </label>
+                                    <label class="radio-control">
+                                        <input type="radio" name="record-mode" value="manual">
+                                        <span class="control-indicator"></span>
+                                        <span>單獨勾選 (微調剔除)</span>
+                                    </label>
+                                </div>
+                                <span class="badge" id="record-checked-count">0 間</span>
+                            </div>
+                            
+                            <div class="record-room-list" id="record-room-list" style="max-height: 500px;">
+                                <div class="empty-state">請先選擇計畫</div>
+                            </div>
+
+                            <button type="submit" class="btn btn-success mt-4 w-full">送出結算</button>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- VIEW: Exception (異常紀錄) -->
+                <section id="view-exception" class="view">
+                    <div class="grid-2col">
+                        <div class="card glass-card">
+                            <div class="card-header">
+                                <h3>通報新異常</h3>
+                            </div>
+                            <form id="exception-form" class="form-layout">
+                                <div class="form-group">
+                                    <label>房號</label>
+                                    <input type="text" id="exc-room-no" placeholder="輸入發生異常的房號" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>通報日期</label>
+                                    <input type="date" id="exc-date" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>床墊照片 (非必要)</label>
+                                    <input type="file" accept="image/*" class="file-input">
+                                </div>
+                                <button type="submit" class="btn btn-primary mt-2">送出異常通報</button>
+                            </form>
+                        </div>
+                        
+                        <div class="card glass-card">
+                            <div class="card-header">
+                                <h3>歷史異常瀏覽</h3>
+                            </div>
+                            <div class="filter-bar compact mb-4">
+                                <div class="form-group">
+                                    <select id="exc-filter-type">
+                                        <option value="">全部房型</option>
+                                        <option value="單人房">單人房</option>
+                                        <option value="雙人房">雙人房</option>
+                                        <option value="四人房">四人房</option>
+                                        <option value="套房">套房</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <input type="text" id="exc-filter-room" placeholder="搜尋房號">
+                                </div>
+                            </div>
+                            <div class="table-container" style="max-height: 400px;">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>通報日期</th>
+                                            <th>房號</th>
+                                            <th>房型</th>
+                                            <th>當時晚數</th>
+                                            <th>狀態</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="exception-table-body">
+                                        <!-- Populated by JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW: Settings (參數設定) -->
+                <section id="view-settings" class="view">
+                    <div class="dashboard-grid">
+                        <div class="card glass-card flex-col lg-col-span-2">
+                            <div class="card-header">
+                                <h3>各房型翻床門檻設定 (晚數)</h3>
+                                <button type="button" class="btn btn-primary btn-sm" id="btn-save-thresholds">儲存設定</button>
+                            </div>
+                            <div class="table-container mt-4">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>房型</th>
+                                            <th><span class="dot dot-blue"></span> 可以翻床門檻</th>
+                                            <th><span class="dot dot-yellow"></span> 建議翻床門檻</th>
+                                            <th><span class="dot dot-red"></span> 急需翻床門檻</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="threshold-table-body">
+                                        <!-- Form elements via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="card glass-card">
+                            <div class="card-header">
+                                <h3>樓層急迫度公式權重</h3>
+                            </div>
+                            <form class="form-layout mt-4" id="weight-form">
+                                <div class="form-group">
+                                    <label>最低急迫度門檻 (間) <span class="help-text">黃燈以上數量達標才可封層</span></label>
+                                    <input type="number" id="setting-min-yellow" min="1" value="5">
+                                </div>
+                                <div class="form-group">
+                                    <label>紅燈房權重倍率</label>
+                                    <input type="number" step="0.5" id="setting-red-weight" min="1" value="2">
+                                </div>
+                                <button type="button" class="btn btn-outline mt-2 w-full" id="btn-save-weights">更新權重</button>
+                            </form>
+                        </div>
+                        
+                        <div class="card glass-card">
+                            <div class="card-header">
+                                <h3>通知條件與對象設定</h3>
+                            </div>
+                            <form class="form-layout mt-4">
+                                <label class="toggle-control">
+                                    <input type="checkbox" id="notif-urgent" checked>
+                                    <span class="control-indicator"></span>
+                                    <span>樓層達最低急迫度門檻</span>
+                                </label>
+                                <label class="toggle-control">
+                                    <input type="checkbox" id="notif-expire" checked>
+                                    <span class="control-indicator"></span>
+                                    <span>計畫即將作廢尚未紀錄</span>
+                                </label>
+                                <label class="toggle-control">
+                                    <input type="checkbox" id="notif-ai">
+                                    <span class="control-indicator"></span>
+                                    <span>AI 參數自動調整通知</span>
+                                </label>
+                                
+                                <div class="divider mt-4 mb-4"></div>
+                                <label>通知信箱管理</label>
+                                <div class="email-list" id="email-list">
+                                    <div class="email-item">manager@hotel.com <button class="btn-icon text-red">×</button></div>
+                                </div>
+                                <div class="form-group flex gap-2 mt-2">
+                                    <input type="email" id="new-email" placeholder="新增 Email">
+                                    <button type="button" class="btn btn-outline" id="btn-add-email">+</button>
+                                </div>
+                                <button type="button" class="btn btn-primary mt-4 w-full" id="btn-test-email">發送測試信</button>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW: AI (參數建議) -->
+                <section id="view-ai" class="view">
+                    <div class="grid-2col">
+                        <div class="card glass-card border-glow">
+                            <div class="card-header">
+                                <h3><span class="sparkle">✦</span> AI 參數優化建議</h3>
+                                <button type="button" class="btn btn-outline btn-sm" id="btn-refresh-ai">重新分析</button>
+                            </div>
+                            <p class="text-sm text-gray mt-2 mb-6">系統根據最近 6 個月的異常紀錄與大數據分析，提供以下門檻調整建議以延長床墊壽命與節省人力。</p>
+                            
+                            <div class="ai-suggestion-list" id="ai-suggestion-list">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+
+                        <div class="flex-col gap-6">
+                            <div class="card glass-card">
+                                <div class="card-header">
+                                    <h3>自動調整授權 (F4.2)</h3>
+                                </div>
+                                <div class="form-group mt-4">
+                                    <label class="radio-control">
+                                        <input type="radio" name="ai-auth" value="manual" checked>
+                                        <span class="control-indicator"></span>
+                                        <span>手動確認 (僅提供建議)</span>
+                                    </label>
+                                    <label class="radio-control mt-2">
+                                        <input type="radio" name="ai-auth" value="auto">
+                                        <span class="control-indicator"></span>
+                                        <span>授權 AI 自動調整參數</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="card glass-card flex-1">
+                                <div class="card-header">
+                                    <h3>參數修改日誌</h3>
+                                </div>
+                                <div class="timeline mt-4" id="parameter-log">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
     </div>
-    <nav>
-      <a href="#dashboard" class="active">總覽</a>
-      <a href="#floors">樓層迫切度</a>
-      <a href="#plan">建立計畫</a>
-      <a href="#record">執行紀錄</a>
-      <a href="#reports">報表</a>
-      <a href="#notify">通知</a>
-      <a href="#settings">門檻設定</a>
-      <a href="#ai" class="nav-ai">✦ AI 建議</a>
-    </nav>
-  </aside>
 
-  <main class="app-shell">
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">2026-05-13 09:30 更新</p>
-        <h1>房務翻床規劃工作台</h1>
-      </div>
-      <div class="top-actions">
-        <button class="ghost-button" type="button">匯入排房資料</button>
-        <button class="primary-button" type="button">建立翻床計畫</button>
-      </div>
-    </header>
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toast-container"></div>
 
-    <section id="dashboard" class="metric-grid" aria-label="今日總覽">
-      <article class="metric-card urgent">
-        <span>最高迫切樓層</span>
-        <strong>8F</strong>
-        <p>迫切度 92 / 100，建議優先協調封層。</p>
-      </article>
-      <article class="metric-card">
-        <span>達門檻房間</span>
-        <strong>38 間</strong>
-        <p>累計入住晚數已超過建議翻床區間。</p>
-      </article>
-      <article class="metric-card">
-        <span>待紀錄計畫</span>
-        <strong>2 筆</strong>
-        <p>其中 1 筆將於 3 天後作廢。</p>
-      </article>
-      <article class="metric-card">
-        <span>預估節省工時</span>
-        <strong>18.5 小時</strong>
-        <p>相較整棟固定週期翻床。</p>
-      </article>
-    </section>
-
-    <section id="floors" class="workspace">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Floor Maintenance Urgency</p>
-          <h2>樓層維護迫切度</h2>
-        </div>
-        <div class="filter-row">
-          <button class="chip active" type="button">全部</button>
-          <button class="chip" type="button">已達門檻</button>
-          <button class="chip" type="button">可封層</button>
-        </div>
-      </div>
-
-      <div class="floor-layout">
-        <div class="floor-list" id="floorList"></div>
-        <div class="panel">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">8F Room Priority</p>
-              <h3>房間優先順序</h3>
-            </div>
-            <span class="status-pill danger">建議翻床</span>
-          </div>
-          <div class="room-table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>房號</th>
-                  <th>累計晚數</th>
-                  <th>優先級</th>
-                  <th>上次翻床</th>
-                  <th>狀態</th>
-                </tr>
-              </thead>
-              <tbody id="roomRows"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="plan" class="workspace split">
-      <div class="panel">
-        <div class="panel-heading">
-          <div>
-            <p class="eyebrow">Create Plan</p>
-            <h2>建立翻床計畫</h2>
-          </div>
-          <span class="status-pill">草稿</span>
-        </div>
-        <form class="form-grid">
-          <label>
-            計畫日期
-            <input type="date" value="2026-05-15">
-          </label>
-          <label>
-            樓層
-            <select>
-              <option>8F - 迫切度 92</option>
-              <option>6F - 迫切度 81</option>
-              <option>5F - 迫切度 68</option>
-            </select>
-          </label>
-          <label>
-            封層時段
-            <select>
-              <option>09:00 - 13:00</option>
-              <option>13:00 - 17:00</option>
-              <option>整日</option>
-            </select>
-          </label>
-          <label>
-            前台確認
-            <select>
-              <option>已確認可封層</option>
-              <option>待電話確認</option>
-              <option>不可封層</option>
-            </select>
-          </label>
-        </form>
-        <div class="plan-summary">
-          <div>
-            <span>本次排入</span>
-            <strong>12 間</strong>
-          </div>
-          <div>
-            <span>預估工時</span>
-            <strong>4.8 小時</strong>
-          </div>
-          <div>
-            <span>空置影響</span>
-            <strong>中</strong>
-          </div>
-        </div>
-        <button class="primary-button full" type="button">儲存計畫</button>
-      </div>
-
-      <div class="panel">
-        <div class="panel-heading">
-          <div>
-            <p class="eyebrow">Plan Queue</p>
-            <h3>預計翻床順序</h3>
-          </div>
-          <button class="ghost-button small" type="button">依優先級重排</button>
-        </div>
-        <ol class="priority-list" id="priorityList"></ol>
-      </div>
-    </section>
-
-    <section id="record" class="workspace split">
-      <div class="panel">
-        <div class="panel-heading">
-          <div>
-            <p class="eyebrow">Execution Record</p>
-            <h2>建立執行紀錄</h2>
-          </div>
-          <span class="status-pill warning">待完成</span>
-        </div>
-        <form class="form-grid">
-          <label>
-            選擇計畫
-            <select>
-              <option>2026-05-15 8F 翻床計畫</option>
-              <option>2026-05-17 6F 翻床計畫</option>
-            </select>
-          </label>
-          <label>
-            翻床日期
-            <input type="date" value="2026-05-15">
-          </label>
-          <label class="wide">
-            今天翻到的最後房號
-            <select id="lastRoomSelect">
-              <option>808</option>
-              <option>810</option>
-              <option>812</option>
-              <option>816</option>
-            </select>
-          </label>
-        </form>
-        <div class="hint-box">
-          選擇最後一間房後，系統會自動勾選優先順序在此之前的房間；仍可手動微調。
-        </div>
-        <button class="primary-button full" type="button">儲存執行紀錄</button>
-      </div>
-
-      <div class="panel">
-        <div class="panel-heading">
-          <div>
-            <p class="eyebrow">Selected Rooms</p>
-            <h3>本次歸零房間</h3>
-          </div>
-          <span class="status-pill">8 間</span>
-        </div>
-        <div class="check-list" id="recordList"></div>
-      </div>
-    </section>
-
-    <section id="reports" class="workspace split">
-      <div class="panel">
-        <div class="panel-heading">
-          <div>
-            <p class="eyebrow">Report Export</p>
-            <h2>報表匯出</h2>
-          </div>
-          <button class="ghost-button small" type="button">匯出 CSV</button>
-        </div>
-        <div class="report-options">
-          <label><input type="checkbox" checked> 樓層迫切度排行</label>
-          <label><input type="checkbox" checked> 房間累計晚數</label>
-          <label><input type="checkbox" checked> 翻床執行紀錄</label>
-          <label><input type="checkbox"> 通知觸發紀錄</label>
-        </div>
-      </div>
-      <div class="panel">
-        <div class="panel-heading">
-          <div>
-            <p class="eyebrow">Recent Plans</p>
-            <h3>近期計畫狀態</h3>
-          </div>
-        </div>
-        <div class="timeline">
-          <div><span></span><strong>8F 翻床計畫</strong><small>待紀錄，2026-05-15</small></div>
-          <div><span></span><strong>6F 翻床計畫</strong><small>已建立，2026-05-17</small></div>
-          <div><span></span><strong>5F 翻床紀錄</strong><small>已完成，2026-05-08</small></div>
-        </div>
-      </div>
-    </section>
-
-    <section id="notify" class="workspace split">
-      <div class="panel">
-        <div class="panel-heading">
-          <div>
-            <p class="eyebrow">Notification Rules</p>
-            <h2>通知設定</h2>
-          </div>
-          <span class="status-pill">Gmail</span>
-        </div>
-        <div class="toggle-list">
-          <label><input type="checkbox" checked> 有樓層達到最低急迫度門檻</label>
-          <label><input type="checkbox" checked> 計畫即將作廢卻尚未紀錄</label>
-          <label><input type="checkbox"> 有樓層急迫度達到自訂門檻</label>
-        </div>
-        <label class="threshold">
-          自訂急迫度門檻
-          <input type="range" min="50" max="100" value="85">
-          <span>85</span>
-        </label>
-      </div>
-      <div class="panel">
-        <div class="panel-heading">
-          <div>
-            <p class="eyebrow">Recipients</p>
-            <h3>通知對象</h3>
-          </div>
-          <button class="ghost-button small" type="button">寄送測試信</button>
-        </div>
-        <div class="recipient-list">
-          <div><strong>housekeeping.manager@gmail.com</strong><button type="button">刪除</button></div>
-          <div><strong>frontdesk.team@gmail.com</strong><button type="button">刪除</button></div>
-        </div>
-        <label class="add-email">
-          新增 Gmail 帳號
-          <input type="email" placeholder="name@gmail.com">
-        </label>
-      </div>
-    </section>
-
-    <!-- ===== F1.1 門檻設定 ===== -->
-    <section id="settings" class="workspace">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Threshold Configuration · F1.1</p>
-          <h2>門檻設定</h2>
-        </div>
-        <button class="primary-button" type="button" id="saveSettingsBtn">儲存設定</button>
-      </div>
-
-      <div class="settings-grid">
-        <!-- 各房型門檻 -->
-        <div class="panel settings-panel">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">Room Type Thresholds</p>
-              <h3>各房型翻床門檻（單位：晚）</h3>
-            </div>
-          </div>
-          <div class="room-type-tabs">
-            <button class="chip active" type="button" data-tab="single">單人房</button>
-            <button class="chip" type="button" data-tab="double">雙人房</button>
-            <button class="chip" type="button" data-tab="quad">四人房</button>
-            <button class="chip" type="button" data-tab="suite">套房</button>
-          </div>
-          <div class="threshold-fields">
-            <label>
-              <span class="threshold-icon green-dot"></span>
-              可以翻床門檻
-              <div class="input-unit-wrap">
-                <input type="number" id="thresh_can" min="1" value="60">
-                <span class="unit-badge">晚</span>
-              </div>
-              <small class="field-hint">累計晚數低於此值，封層時可選擇不翻床</small>
-            </label>
-            <label>
-              <span class="threshold-icon yellow-dot"></span>
-              建議翻床門檻
-              <div class="input-unit-wrap">
-                <input type="number" id="thresh_rec" min="1" value="120">
-                <span class="unit-badge">晚</span>
-              </div>
-              <small class="field-hint">人力、資產閒置與床墊損壞風險的平衡點</small>
-            </label>
-            <label>
-              <span class="threshold-icon red-dot"></span>
-              急需翻床門檻
-              <div class="input-unit-wrap">
-                <input type="number" id="thresh_urg" min="1" value="180">
-                <span class="unit-badge">晚</span>
-              </div>
-              <small class="field-hint">超過此值有床墊損壞風險</small>
-            </label>
-          </div>
-        </div>
-
-        <!-- 樓層急迫度參數 -->
-        <div class="panel settings-panel">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">Floor Urgency Parameters</p>
-              <h3>樓層急迫度計算參數</h3>
-            </div>
-          </div>
-          <div class="threshold-fields">
-            <label>
-              最低急迫度門檻（黃燈以上房間數）
-              <div class="input-unit-wrap">
-                <input type="number" id="thresh_min_urgency" min="1" value="5">
-                <span class="unit-badge">間</span>
-              </div>
-              <small class="field-hint">一層樓達到幾間黃燈以上才納入急迫度排序</small>
-            </label>
-            <label>
-              紅燈房權重
-              <div class="input-unit-wrap">
-                <input type="number" id="thresh_red_weight" min="1" step="0.5" value="2">
-                <span class="unit-badge">倍</span>
-              </div>
-              <small class="field-hint">計算樓層急迫度時，紅燈房的加權倍率（預設 2）</small>
-            </label>
-            <div class="weight-preview">
-              <p class="eyebrow">急迫度公式預覽</p>
-              <code>FloorUrgency = Σ(w<sub>i</sub> × r<sub>i</sub>)</code>
-              <div class="weight-legend">
-                <span class="legend-item"><span class="green-dot"></span>綠：w = 0</span>
-                <span class="legend-item"><span class="blue-dot"></span>藍：w = 0</span>
-                <span class="legend-item"><span class="yellow-dot"></span>黃：w = 1</span>
-                <span class="legend-item"><span class="red-dot"></span>紅：w = <strong
-                    id="weight_preview">2</strong></span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===== F4.1 / F4.2 AI 參數建議 ===== -->
-    <section id="ai" class="workspace">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">AI Parameter Advisory · F4.1 / F4.2</p>
-          <h2>AI 參數建議</h2>
-        </div>
-        <span class="status-pill ai-pill">✦ AI 分析中</span>
-      </div>
-
-      <div class="ai-layout">
-        <!-- 左：建議清單 -->
-        <div class="panel">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">Suggestions based on anomaly records</p>
-              <h3>根據異常紀錄的建議調整</h3>
-            </div>
-            <button class="ghost-button small" type="button" id="refreshAiBtn">重新分析</button>
-          </div>
-
-          <div class="ai-suggestion-list" id="aiSuggestionList">
-            <div class="ai-card ai-card--warn">
-              <div class="ai-card__header">
-                <span class="ai-card__type">四人房</span>
-                <span class="ai-card__direction down">▼ 降低門檻</span>
-              </div>
-              <p class="ai-card__desc">過去 6 個月四人房共發生 <strong>4 次</strong>床墊凹陷異常，異常頻率高於其他房型 2.3 倍。建議將急需翻床門檻由 <strong>180
-                  晚</strong> 降至 <strong>140 晚</strong>，以降低床墊損壞風險。</p>
-              <div class="ai-card__actions">
-                <button class="ghost-button small" type="button">檢視異常紀錄</button>
-                <button class="primary-button small ai-accept-btn" type="button" data-field="thresh_urg"
-                  data-room-type="quad" data-value="140">套用建議</button>
-              </div>
-            </div>
-
-            <div class="ai-card ai-card--good">
-              <div class="ai-card__header">
-                <span class="ai-card__type">單人房</span>
-                <span class="ai-card__direction up">▲ 提高門檻</span>
-              </div>
-              <p class="ai-card__desc">單人房過去 12 個月<strong>零異常紀錄</strong>，目前建議翻床門檻（120 晚）保守。建議將建議翻床門檻提高至 <strong>150
-                  晚</strong>，可節省約 18% 人力成本。</p>
-              <div class="ai-card__actions">
-                <button class="ghost-button small" type="button">檢視異常紀錄</button>
-                <button class="primary-button small ai-accept-btn" type="button" data-field="thresh_rec"
-                  data-room-type="single" data-value="150">套用建議</button>
-              </div>
-            </div>
-
-            <div class="ai-card ai-card--info">
-              <div class="ai-card__header">
-                <span class="ai-card__type">紅燈房權重</span>
-                <span class="ai-card__direction up">▲ 調高權重</span>
-              </div>
-              <p class="ai-card__desc">分析顯示紅燈房比黃燈房的損壞機率高 <strong>3.8 倍</strong>，而目前紅燈權重僅設為 2。建議調整為
-                <strong>3.5</strong>，使急迫度計算更能反映實際風險。</p>
-              <div class="ai-card__actions">
-                <button class="ghost-button small" type="button">查看分析依據</button>
-                <button class="primary-button small ai-accept-btn" type="button" data-field="thresh_red_weight"
-                  data-value="3.5">套用建議</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 右：授權設定 + 調整紀錄 -->
-        <div style="display:grid;gap:18px;align-content:start">
-          <div class="panel">
-            <div class="panel-heading">
-              <div>
-                <p class="eyebrow">Authorization · F4.2</p>
-                <h3>AI 自動調整授權</h3>
-              </div>
-            </div>
-            <div class="toggle-list">
-              <label>
-                <input type="radio" name="ai_auth" value="manual" checked>
-                手動確認（AI 僅提供建議，由我決定是否套用）
-              </label>
-              <label>
-                <input type="radio" name="ai_auth" value="auto">
-                授權 AI 自動調整（系統自動套用建議並留下紀錄）
-              </label>
-            </div>
-            <div class="hint-box" style="margin-top:14px;margin-bottom:0">
-              目前模式：<strong id="authModeLabel">手動確認</strong>。每次參數變更皆會記錄於下方調整紀錄。
-            </div>
-          </div>
-
-          <div class="panel">
-            <div class="panel-heading">
-              <div>
-                <p class="eyebrow">Adjustment Log</p>
-                <h3>參數調整紀錄</h3>
-              </div>
-            </div>
-            <div class="timeline" id="aiAdjLog">
-              <div><span></span><strong>單人房 建議翻床門檻 120 → 130 晚</strong><small>AI 建議，手動套用 · 2026-04-10</small></div>
-              <div><span></span><strong>最低急迫度門檻 4 → 5 間</strong><small>AI 建議，手動套用 · 2026-03-22</small></div>
-              <div><span></span><strong>雙人房 急需翻床門檻 170 → 160 晚</strong><small>AI 自動套用 · 2026-02-14</small></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-  </main>
-
-  <script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
-
 </html>
