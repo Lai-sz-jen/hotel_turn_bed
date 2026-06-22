@@ -80,8 +80,16 @@ def handle_exceptions():
     return jsonify({"exceptions": ws.get_mock_exceptions()})
 
 # [新增] 參數設定 API (直接對資料庫下 SQL，符合前端 payload)
-@app.route('/api/v1/parameters', methods=['PUT'])
+@app.route('/api/v1/parameters', methods=['GET', 'PUT'])
 def update_parameters():
+    if request.method == 'GET':
+        res = ws.get_parameters()
+        return jsonify({
+            "status": "success", 
+            "parameters": res["parameters"],
+            "min_yellow": res["min_yellow"],
+            "red_weight": res["red_weight"]
+        })
     data = request.json or {}
     
     # 前端鍵值對應到資料庫房型名稱

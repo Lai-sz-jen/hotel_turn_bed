@@ -779,8 +779,17 @@ const ViewControllers = {
     },
 
     async loadSettings() {
-        // API: GET /parameters
-        const paramRes = await apiClient.request('GET', '/parameters');
+        // API: GET /api/v1/parameters (真實後端)
+        let paramRes;
+        try {
+            const res = await fetch('/api/v1/parameters');
+            if (!res.ok) throw new Error('API Error');
+            paramRes = await res.json();
+        } catch (e) {
+            console.error("Failed to load real parameters, falling back to mock", e);
+            paramRes = await apiClient.request('GET', '/parameters');
+        }
+        
         if (paramRes.status === 'success') {
             const t = paramRes.parameters;
             
@@ -799,6 +808,13 @@ const ViewControllers = {
             document.getElementById('p-quad-can').value = t.quad.can;
             document.getElementById('p-quad-rec').value = t.quad.rec;
             document.getElementById('p-quad-urg').value = t.quad.urg;
+            
+            if (paramRes.min_yellow !== undefined) {
+                document.getElementById('setting-min-yellow').value = paramRes.min_yellow;
+            }
+            if (paramRes.red_weight !== undefined) {
+                document.getElementById('setting-red-weight').value = paramRes.red_weight;
+            }
         }
 
         // API: GET /parameters/suggestion

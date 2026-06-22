@@ -64,12 +64,12 @@ class BedTurningWebService:
                 c.execute("DELETE FROM BedTurningRecord")
                 c.execute("DELETE FROM Room")
                 
-                # 寫入房型門檻
+                # 寫入房型門檻 (預設皆為 可以60/建議120/急需180)
                 c.executemany("INSERT OR IGNORE INTO WeightValue VALUES (?,?,?,?,?,?,?,?)", [
-                    ("雙人房", 15, 30, 45, 10, 5.0, 3.0, 1.0),
-                    ("單人房", 20, 40, 60, 12, 5.0, 3.0, 1.0),
-                    ("兩大床", 15, 30, 45, 10, 5.0, 3.0, 1.0),
-                    ("總統套房", 10, 20, 30, 8, 5.0, 3.0, 1.0)
+                    ("雙人房", 60, 120, 180, 10, 5.0, 3.0, 1.0),
+                    ("單人房", 60, 120, 180, 12, 5.0, 3.0, 1.0),
+                    ("兩大床", 60, 120, 180, 10, 5.0, 3.0, 1.0),
+                    ("總統套房", 60, 120, 180, 8, 5.0, 3.0, 1.0)
                 ])
                 
                 csv_file = "2025年翻床紀錄 - 540間.csv"
@@ -100,16 +100,13 @@ class BedTurningWebService:
                                 suf_val = int(suffix)
                                 if suf_val <= 3:
                                     room_type = "單人房"
-                                    yellow_threshold = 40
                                 elif suf_val <= 15:
                                     room_type = "雙人房"
-                                    yellow_threshold = 30
                                 elif suf_val <= 25:
                                     room_type = "兩大床"
-                                    yellow_threshold = 30
                                 else:
                                     room_type = "總統套房"
-                                    yellow_threshold = 20
+                                yellow_threshold = 120
                                 
                                 # 依據上次翻床日期計算累計晚數或設定隨機晚數
                                 date_str = date_str.strip()
@@ -390,3 +387,48 @@ class BedTurningWebService:
             writer.writerows(rows)
             
         return dest_path
+
+    def get_parameters(self):
+        with self._get_conn() as conn:
+            c = conn.cursor()
+            c.execute("SELECT room_type, allowable_turning_threshold, recommended_turning_threshold, urgent_turning_threshold, minimum_urgency_threshold, red_status_room_weight FROM WeightValue")
+            rows = c.fetchall()
+            
+        # Map DB Chinese type to EN keys
+        type_map = {
+            '單人房': 'single',
+            '雙人房': 'twin',
+            '兩大床': 'double',
+            '總統套房': 'quad'
+        }
+        
+        # Default fallback
+        params = {
+            'single': {'can': 60, 'rec': 120, 'urg': 180},
+            'twin': {'can': 60, 'rec': 120, 'urg': 180},
+            'double': {'can': 60, 'rec': 120, 'urg': 180},
+            'quad': {'can': 60, 'rec': 120, 'urg': 180}
+        }
+        
+        min_yellow = 5
+        red_weight = 2.0
+        
+        for row in rows:
+            zh_type, allowable, recommended, urgent, m_yellow, r_weight = row
+            en_key = type_map.get(zh_type)
+            if en_key:
+                params[en_key] = {
+                    'can': allowable,
+                    'rec': recommended,
+                    'urg': urgent
+                }
+            if m_yellow is not None:
+                min_yellow = m_yellow
+            if r_weight is not None:
+                red_weight = r_weight
+                
+        return {
+            "parameters": params,
+            "min_yellow": min_yellow,
+            "red_weight": red_weight
+        }
