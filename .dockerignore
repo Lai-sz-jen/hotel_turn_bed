@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.git
+.gitignore
+Dockerfile
+.dockerignore
+README.md
+*.pdf
+*_extracted.txt
