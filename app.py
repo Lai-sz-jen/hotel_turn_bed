@@ -25,11 +25,22 @@ def get_dashboard_data():
 
 @app.route('/api/v1/report/export', methods=['POST'])
 def export_report():
+    filename = "bed_turning_report_2026.csv"
+    ws.generate_report(filename)
     return jsonify({
         "status": "success", 
-        "path": "/downloads/bed_turning_report_2026.csv", 
-        "file": "bed_turning_report_2026.csv"
+        "path": f"/downloads/{filename}", 
+        "file": filename
     })
+
+@app.route('/downloads/<path:filename>')
+def download_file(filename):
+    import os
+    base_dir = os.path.abspath(os.path.dirname(__file__))
+    file_path = os.path.join(base_dir, filename)
+    if os.path.exists(file_path) and filename.endswith('.csv') and not filename.startswith('.'):
+        return send_file(file_path, as_attachment=True)
+    return "Not Found", 404
 
 # [模組 2：翻床計畫 API]
 # 注意：建立計畫只會把房間排入計畫 (status=0)，不會歸零累計晚數。

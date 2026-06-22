@@ -371,6 +371,28 @@ const ViewControllers = {
         const planData = { suggested_floors: data.suggested_floors };
         let rooms = data.rooms;
 
+        // 動態從真實資料庫房間列表中產生樓層篩選器選項
+        const filterFloor = document.getElementById('filter-floor');
+        if (filterFloor) {
+            const selectedVal = filterFloor.value;
+            const floorsSet = new Set(rooms.map(r => r.floor));
+            const getFloorNum = (f) => f.startsWith('B') ? -parseInt(f.substring(1)) : parseInt(f);
+            const sortedFloors = Array.from(floorsSet).sort((a, b) => getFloorNum(a) - getFloorNum(b));
+            
+            // 清除現有動態產生之樓層 (保留前 3 個預設選項)
+            while (filterFloor.options.length > 3) {
+                filterFloor.remove(3);
+            }
+            
+            sortedFloors.forEach(f => {
+                const opt = document.createElement('option');
+                opt.value = f;
+                opt.textContent = `${f} 樓`;
+                filterFloor.appendChild(opt);
+            });
+            filterFloor.value = selectedVal;
+        }
+
         // 本地篩選邏輯
         if (floorFilter === '@eligible') {
             const eligFloors = data.suggested_floors.map(f => f.floor);
@@ -823,6 +845,13 @@ const ViewControllers = {
             const res = await response.json();
             if (res.status === 'success') {
                 showToast(`📊 報表產生成功：${res.file}`, 'success');
+                // 建立臨時連結以觸發瀏覽器下載
+                const a = document.createElement('a');
+                a.href = res.path;
+                a.download = res.file;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
             }
         } catch (e) {
             showToast('❌ 報表匯出失敗', 'error');
@@ -835,18 +864,7 @@ const ViewControllers = {
 // ==========================================
 
 function initEvents() {
-    // Populate floor filter options dynamically
-    const filterFloor = document.getElementById('filter-floor');
-    const floorsSet = new Set(mockBackend.db.rooms.map(r => r.floor));
-    const getFloorNum = (f) => f.startsWith('B') ? -parseInt(f.substring(1)) : parseInt(f);
-    const sortedFloors = Array.from(floorsSet).sort((a, b) => getFloorNum(a) - getFloorNum(b));
-    
-    sortedFloors.forEach(f => {
-        const opt = document.createElement('option');
-        opt.value = f;
-        opt.textContent = `${f} 樓`;
-        filterFloor.appendChild(opt);
-    });
+    // 樓層選項已改為在 loadDashboard() 中自真實後端資料動態載入
 
     // Nav Navigation
     document.querySelectorAll('.nav-item').forEach(nav => {

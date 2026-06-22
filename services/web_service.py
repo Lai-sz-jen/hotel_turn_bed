@@ -57,27 +57,92 @@ class BedTurningWebService:
     def ensure_dummy_data(self):
         with self._get_conn() as conn:
             c = conn.cursor()
-            # 檢查 Room 表是否有資料
+            # 檢查 Room 表是否有資料，若小於等於 7 間（即只有舊版預設假資料），則重新寫入完整測試數據
             c.execute("SELECT COUNT(*) FROM Room")
-            if c.fetchone()[0] == 0:
+            if c.fetchone()[0] <= 7:
                 print("自動寫入測試展示數據...")
+                c.execute("DELETE FROM BedTurningRecord")
+                c.execute("DELETE FROM Room")
+                
                 # 寫入房型門檻
                 c.executemany("INSERT OR IGNORE INTO WeightValue VALUES (?,?,?,?,?,?,?,?)", [
                     ("雙人房", 15, 30, 45, 10, 5.0, 3.0, 1.0),
                     ("單人房", 20, 40, 60, 12, 5.0, 3.0, 1.0),
+                    ("兩大床", 15, 30, 45, 10, 5.0, 3.0, 1.0),
                     ("總統套房", 10, 20, 30, 8, 5.0, 3.0, 1.0)
                 ])
-                # 寫入房間假資料
-                rooms_data = [
-                    ("301", "雙人房", "3", "2026-05-01", 48), # 紅燈
-                    ("302", "雙人房", "3", "2026-05-10", 35), # 黃燈
-                    ("303", "單人房", "3", "2026-05-20", 16), # 藍燈
-                    ("501", "總統套房", "5", "2026-04-15", 32), # 紅燈
-                    ("502", "雙人房", "5", "2026-05-18", 31), # 黃燈
-                    ("701", "單人房", "7", "2026-06-01", 5),  # 綠燈
-                    ("702", "雙人房", "7", "2026-06-02", 4)   # 綠燈
-                ]
-                c.executemany("INSERT OR IGNORE INTO Room VALUES (?,?,?,?,?)", rooms_data)
+                
+                csv_file = "2025年翻床紀錄 - 540間.csv"
+                if os.path.exists(csv_file):
+                    import csv
+                    import random
+                    rooms_data = []
+                    # 固定隨機數種子以保證每次產生資料一致
+                    random.seed(42)
+                    
+                    with open(csv_file, encoding='utf-8') as f:
+                        reader = list(csv.reader(f))
+                        suffixes = reader[1][2:30]
+                        for row in reader[3:]:
+                            if len(row) < 33:
+                                continue
+                            floor = row[0].strip()
+                            if not floor.isdigit():
+                                continue
+                            for idx, date_str in enumerate(row[2:30]):
+                                suffix = suffixes[idx].strip()
+                                if not suffix:
+                                    continue
+                                suffix_padded = suffix.zfill(2)
+                                room_number = f"{floor}{suffix_padded}"
+                                
+                                # 依尾數區分配分房型
+                                suf_val = int(suffix)
+                                if suf_val <= 3:
+                                    room_type = "單人房"
+                                    yellow_threshold = 40
+                                elif suf_val <= 15:
+                                    room_type = "雙人房"
+                                    yellow_threshold = 30
+                                elif suf_val <= 25:
+                                    room_type = "兩大床"
+                                    yellow_threshold = 30
+                                else:
+                                    room_type = "總統套房"
+                                    yellow_threshold = 20
+                                
+                                # 依據上次翻床日期計算累計晚數或設定隨機晚數
+                                date_str = date_str.strip()
+                                last_turned = None
+                                if date_str:
+                                    parts = date_str.split('/')
+                                    if len(parts) == 2:
+                                        last_turned = f"2025-{parts[0].zfill(2)}-{parts[1].zfill(2)}"
+                                        try:
+                                            d_turned = datetime.strptime(last_turned, "%Y-%m-%d")
+                                            days = (datetime.now() - d_turned).days
+                                            nights = int(days * random.uniform(0.08, 0.16))
+                                        except Exception:
+                                            nights = random.randint(10, 45)
+                                else:
+                                    nights = random.randint(0, int(yellow_threshold * 1.5))
+                                    last_turned = f"2024-{random.randint(1,12):02d}-{random.randint(1,28):02d}"
+                                
+                                rooms_data.append((room_number, room_type, floor, last_turned, nights))
+                    
+                    c.executemany("INSERT OR IGNORE INTO Room VALUES (?,?,?,?,?)", rooms_data)
+                else:
+                    # 備份用的少樣假資料
+                    rooms_data = [
+                        ("301", "雙人房", "3", "2026-05-01", 48), # 紅燈
+                        ("302", "雙人房", "3", "2026-05-10", 35), # 黃燈
+                        ("303", "單人房", "3", "2026-05-20", 16), # 藍燈
+                        ("501", "總統套房", "5", "2026-04-15", 32), # 紅燈
+                        ("502", "雙人房", "5", "2026-05-18", 31), # 黃燈
+                        ("701", "單人房", "7", "2026-06-01", 5),  # 綠燈
+                        ("702", "雙人房", "7", "2026-06-02", 4)   # 綠燈
+                    ]
+                    c.executemany("INSERT OR IGNORE INTO Room VALUES (?,?,?,?,?)", rooms_data)
                 conn.commit()
             # 注意：不預先寫入任何「翻床計畫/執行紀錄」示範資料，
             # 故系統初始狀態下「翻床執行紀錄」模組的待登記清單為空，
@@ -99,12 +164,19 @@ class BedTurningWebService:
     def get_all_rooms_status(self):
         with self._get_conn() as conn:
             c = conn.cursor()
-            c.execute("SELECT r.room_number, r.room_type, r.floor, r.cumulative_nights, w.allowable_turning_threshold, w.recommended_turning_threshold, w.urgent_turning_threshold FROM Room r JOIN WeightValue w ON r.room_type = w.room_type")
+            c.execute("SELECT r.room_number, r.room_type, r.floor, r.cumulative_nights, w.allowable_turning_threshold, w.recommended_turning_threshold, w.urgent_turning_threshold, r.last_bed_turning_date FROM Room r JOIN WeightValue w ON r.room_type = w.room_type")
             res = []
             for row in c.fetchall():
-                num, t, fl, nights, blue, yellow, red = row
+                num, t, fl, nights, blue, yellow, red, last_turned = row
                 light = self._calc_light(nights, blue, yellow, red)
-                res.append({"room": num, "type": t, "floor": fl, "nights": nights, "light": light})
+                res.append({
+                    "room": num,
+                    "type": t,
+                    "floor": fl,
+                    "nights": nights,
+                    "light": light,
+                    "last_turned": last_turned or ""
+                })
             return res
 
     # ------------------------------------------------------------------
@@ -232,3 +304,89 @@ class BedTurningWebService:
             "suggested_yellow": 24,
             "reason": "經AI統計分析，『雙人房』過去3筆損壞平均發生在第26.2晚，早於現行黃燈預警門檻(30晚)。建議整體調降門檻20%以延長資產壽命。"
         }
+
+    def generate_report(self, dest_path="bed_turning_report_2026.csv"):
+        import csv
+        from datetime import datetime
+        
+        # 1. 取得所有房間
+        with self._get_conn() as conn:
+            c = conn.cursor()
+            c.execute("SELECT room_number, floor, last_bed_turning_date FROM Room")
+            rooms = c.fetchall()
+            
+        # 2. 組織資料
+        # rooms_dict[(floor, suffix)] = last_bed_turning_date
+        rooms_dict = {}
+        all_floors = set()
+        for num, floor, last_turned in rooms:
+            all_floors.add(floor)
+            try:
+                suffix = int(num[-2:])
+                rooms_dict[(floor, suffix)] = last_turned
+            except ValueError:
+                pass
+                
+        # 3. 排序樓層 (從高到低)
+        def floor_sort_key(f):
+            f_clean = f.strip()
+            if f_clean.startswith('B'):
+                try:
+                    return -int(f_clean[1:])
+                except ValueError:
+                    return -999
+            try:
+                return int(f_clean)
+            except ValueError:
+                return 0
+                
+        sorted_floors = sorted(list(all_floors), key=floor_sort_key, reverse=True)
+        
+        # 4. 定義欄位 (對應 2025 年範例 CSV 欄位，跳過 4)
+        suffixes = [1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
+        
+        # 5. 寫入 CSV (使用 utf-8-sig 確保 Excel 在 Windows 開啟不亂碼)
+        current_year = datetime.now().year
+        title_row = [f"{current_year}年翻床統計"] + [''] * 32
+        
+        header_row_1 = ['房號', ''] + [str(s) for s in suffixes] + ['房號', '', '總計']
+        header_row_2 = ['樓層', ''] + [''] * len(suffixes) + ['樓層', '', '']
+        
+        rows = []
+        rows.append(title_row)
+        rows.append(header_row_1)
+        rows.append(header_row_2)
+        
+        grand_total = 0
+        for floor in sorted_floors:
+            floor_row = [floor, '']
+            floor_total = 0
+            for s in suffixes:
+                date_val = rooms_dict.get((floor, s))
+                if date_val:
+                    # 轉換格式為 M/D (e.g. 2025-06-12 -> 6/12)
+                    try:
+                        dt = datetime.strptime(date_val, "%Y-%m-%d")
+                        date_str = f"{dt.month}/{dt.day}"
+                    except Exception:
+                        date_str = date_val
+                    floor_total += 1
+                else:
+                    date_str = ''
+                floor_row.append(date_str)
+            floor_row.extend([floor, '', str(floor_total)])
+            grand_total += floor_total
+            rows.append(floor_row)
+            
+        # 底部重複標頭與總計
+        rows.append(header_row_1)
+        rows.append(header_row_2)
+        
+        total_row = ['總                                              計'] + [''] * 31 + [str(grand_total)]
+        rows.append(total_row)
+        
+        with open(dest_path, mode='w', encoding='utf-8-sig', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerows(rows)
+            
+        return dest_path
